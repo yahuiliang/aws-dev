@@ -36,15 +36,13 @@ for _ in $(seq 1 40); do
 done
 ssh_try true || { echo "SSH 连接超时"; exit 1; }
 
-echo "→ 等待环境初始化（leetcode / Node，最多 ${TIMEOUT}s）..."
+echo "→ 等待环境初始化（最多 ${TIMEOUT}s）..."
 start=$(date +%s)
 while true; do
   if ssh_try 'test -f /data/.initialized'; then
-    if [[ "$(tfvar install_leetcode_cli true)" != "true" ]] || ssh_try 'test -x /usr/local/bin/leetcode'; then
-      elapsed=$(( $(date +%s) - start ))
-      echo "✓ 环境就绪（${elapsed}s）"
-      exit 0
-    fi
+    elapsed=$(( $(date +%s) - start ))
+    echo "✓ 环境就绪（${elapsed}s）"
+    exit 0
   fi
   elapsed=$(( $(date +%s) - start ))
   if (( elapsed >= TIMEOUT )); then

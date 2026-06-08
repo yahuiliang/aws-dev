@@ -47,7 +47,7 @@ description: Guides development and extension of the AWS Spot EC2 remote dev box
 
 1. `scripts/up.sh`：确保 `terraform.tfvars`、SSH 公钥、`allowed_ssh_cidr`
 2. `terraform apply`：创建 Spot 实例，嵌套 `templatefile` 渲染 user-data
-3. `scripts/wait-ready.sh`：轮询 SSH + `/data/.initialized`（及 leetcode wrapper）
+3. `scripts/wait-ready.sh`：轮询 SSH + `/data/.initialized`
 
 ### 实例初始化
 
@@ -55,7 +55,7 @@ description: Guides development and extension of the AWS Spot EC2 remote dev box
 user-data.sh.tpl
   → /usr/local/bin/dev-box-setup.sh（来自 dev-box-setup.sh.tpl）
   → systemd: dev-box-setup.service + dev-box-setup-retry.timer
-  → 等待 EBS 设备 → mount /data → 装包 → leetcode → auto-stop
+  → 等待 EBS 设备 → mount /data → 装包 → auto-stop
   → touch /data/.initialized
 ```
 
@@ -152,7 +152,6 @@ make test   # 需要 brew install bats-core
 | Permission denied | setup 未完成 → `make wait-ready`；失败 → `make fix` |
 | 数据/home 丢失 | 是否误跑 `make destroy`；EBS 是否仍 attach |
 | Spot 容量不足 | tfvars 改 `t4g.small` 或 `make restart` |
-| leetcode 不可用 | `/data/.initialized`；`/usr/local/bin/leetcode` wrapper |
 | 误自动停机 | SSH 里 `keepalive`；调大 `auto_stop_idle_minutes` |
 
 ## 延伸阅读

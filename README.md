@@ -1,6 +1,6 @@
 # AWS 远程开发机（Spot + 持久化盘）
 
-本地电脑性能不够时，用 **Spot EC2 + 持久化 EBS** 搭一台便宜云开发机，默认面向 **刷题 / LeetCode**（也可做小项目 vibe coding）。
+本地电脑性能不够时，用 **Spot EC2 + 持久化 EBS** 搭一台便宜云开发机，适合 **刷题 / 远程开发**（也可做小项目 vibe coding）。
 
 **推荐用法：本地 Cursor + Remote SSH**，只暴露 22 端口。
 
@@ -32,7 +32,7 @@
 **省钱技巧：**
 
 - 不用时 `make stop` 停实例（只付 EBS）
-- 默认 **30 分钟无活动自动停机**
+- 默认 **2 小时无活动自动停机**
 - 默认 `us-west-2`（湾区低延迟）；极致延迟 `us-west-1`；最便宜 `us-east-1`
 - 卡顿可改 `instance_type = "t4g.small"`（仍用 ARM）
 
@@ -77,8 +77,7 @@ make cursor
 instance_type          = "t4g.micro"    # ARM 最便宜档
 allowed_ssh_cidr       = "1.2.3.4/32"  # 必改，你的公网 IP
 install_docker         = false         # 刷题默认不装
-install_leetcode_cli   = true          # leetcode-cli + 离线题面
-auto_stop_idle_minutes = 30
+auto_stop_idle_minutes = 120
 block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
 ```
 
@@ -97,20 +96,18 @@ block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
 | `make cursor` | 写入 `~/.ssh/config`（Cursor Remote SSH） |
 | `make info` | 查看 IP 等信息 |
 | `make fix` | setup 异常时重跑 dev-box-setup |
-| `make setup-leetcode` | 补装 LeetCode 环境（一般不需要） |
 | `make test` | 运行单元测试（需 `brew install bats-core`） |
 | `keepalive`（SSH 内） | 重置自动停机计时 |
 
 ## 开发机已预装
 
 - Git（已配置 `user.name` / `user.email` 占位，请改成你的）、Python3、Node.js (nvm Node 20)、tmux、zsh、ripgrep
-- **C++**：g++（build-essential）、clang、cmake、gdb、clang-format、ninja-build
-- **leetcode-cli** + doocs/leetcode 离线题面（`install_leetcode_cli = true`）
+- **C++**：g++（build-essential）、clang、clangd、cmake、gdb、clang-format、ninja-build
 - Docker 默认**不装**（需要时在 tfvars 设 `install_docker = true`）
 
-代码目录：`~/projects/leetcode`（持久化在 `/data/home/dev/...`）
+代码目录：`~/projects`（持久化在 `/data/home/dev/...`）
 
-部署后检查：`leetcode --help` 或 `test -f /data/.initialized && echo OK`。
+部署后检查：`test -f /data/.initialized && echo OK`。
 
 **避免提前连：** 默认 `block_ssh_until_ready = true`，初始化完成前 SSH 会提示稍后再连；`make up` 也会等到就绪才结束。
 
@@ -120,11 +117,11 @@ block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
 - **IP 白名单**：`allowed_ssh_cidr` 必须为你的公网 IP/32（禁止 `0.0.0.0/0`）
 - **密钥登录**，禁止密码
 - **仅 `dev` 用户**可 SSH，`ubuntu` 账户已禁用
-- **30 分钟无活动自动停机**
+- **2 小时无活动自动停机**
 
 ## 空闲自动停机
 
-**30 分钟无活动** 后实例自动 `stop`。满足任一条件视为有活动：
+**2 小时无活动** 后实例自动 `stop`。满足任一条件视为有活动：
 
 - SSH / Cursor Remote 终端有输入
 - CPU 负载较高（编译、测试中）

@@ -4,7 +4,6 @@ instance_type      = "t4g.micro"
 ssh_public_key_path = "KEY_PATH_PLACEHOLDER"
 allowed_ssh_cidr    = "1.2.3.4/32"
 install_docker      = true
-install_leetcode_cli = false
 dev_username        = "dev"
 auto_stop_idle_minutes           = 0
 auto_stop_check_interval_minutes = 5

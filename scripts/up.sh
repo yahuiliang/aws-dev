@@ -12,10 +12,8 @@ if [[ ! -f terraform.tfvars ]]; then
   cp terraform.tfvars.example terraform.tfvars
 fi
 
-if grep -qE 'allowed_ssh_cidr\s*=\s*"(0\.0\.0\.0/0|YOUR_PUBLIC_IP/32)"' terraform.tfvars; then
-  echo "allowed_ssh_cidr 未设置，正在自动获取公网 IP..."
-  "$ROOT/scripts/set-my-ip.sh"
-fi
+echo "→ 同步 SSH 白名单 IP..."
+"$ROOT/scripts/set-my-ip.sh"
 
 if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
   if [[ -f ~/.ssh/id_rsa.pub ]]; then

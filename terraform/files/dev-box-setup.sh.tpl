@@ -5,7 +5,6 @@ export DEBIAN_FRONTEND=noninteractive
 
 DEV_USER="${dev_username}"
 INSTALL_DOCKER="${install_docker}"
-INSTALL_LEETCODE_CLI="${install_leetcode_cli}"
 SSH_PUBLIC_KEY='${ssh_public_key}'
 AUTO_STOP_IDLE="${auto_stop_idle_minutes}"
 AUTO_STOP_CHECK="${auto_stop_check_interval_minutes}"
@@ -61,7 +60,7 @@ setup_login_hint() {
 
 # dev-box-init-hint
 if [[ ! -f /data/.initialized ]]; then
-  echo "[dev-box] 环境仍在安装（leetcode/node），约 5 分钟。进度: sudo journalctl -t dev-box-setup -f"
+  echo "[dev-box] 环境仍在安装（Node 等开发工具），约 5 分钟。进度: sudo journalctl -t dev-box-setup -f"
 fi
 EOF
   chown "$DEV_USER:$DEV_USER" "$rc"
@@ -106,7 +105,7 @@ setup_ssh_hardening() {
 # 初始化完成前拒绝 dev 登录（ForceCommand 调用）
 if [[ ! -f /data/.initialized ]]; then
   echo ""
-  echo "  [dev-box] 开发环境仍在初始化（Node / leetcode 等）"
+  echo "  [dev-box] 开发环境仍在初始化（Node 等开发工具）"
   echo "  请 3–8 分钟后再连；本地可运行: make wait-ready"
   echo ""
   exit 1
@@ -144,7 +143,7 @@ setup_packages() {
   apt-get install -y \
     build-essential git curl wget unzip jq htop tmux zsh \
     python3 python3-pip python3-venv ripgrep fd-find \
-    cmake clang gdb clang-format ninja-build pkg-config
+    cmake clang clangd gdb clang-format ninja-build pkg-config
 
   setup_git
   setup_cpp_toolchain
@@ -176,7 +175,7 @@ setup_cpp_toolchain() {
     log "ERROR: g++ not available after build-essential install"
     return 1
   fi
-  log "C++: $(g++ --version | head -1) | cmake $(cmake --version | head -1 | awk '{print $3}') | clang $(clang --version | head -1 | awk '{print $3}')"
+  log "C++: $(g++ --version | head -1) | cmake $(cmake --version | head -1 | awk '{print $3}') | clang $(clang --version | head -1 | awk '{print $3}') | clangd $(clangd --version | head -1 | awk '{print $3}')"
 }
 
 ensure_dev_nvm() {
@@ -206,43 +205,6 @@ ensure_dev_nvm() {
     grep -q NODE_OPTIONS "$HOME/.bashrc" 2>/dev/null || \
       echo "export NODE_OPTIONS=\"--no-warnings\"" >> "$HOME/.bashrc"
   '
-}
-
-install_leetcode_wrapper() {
-  cat > /usr/local/bin/leetcode <<WRAPPER
-#!/bin/bash
-export NVM_DIR="/data/home/${dev_username}/.nvm"
-export NODE_OPTIONS="--no-warnings"
-if [[ -s "\$NVM_DIR/nvm.sh" ]]; then
-  . "\$NVM_DIR/nvm.sh"
-  nvm use 20 >/dev/null 2>&1 || true
-fi
-exec "\$(command -v leetcode)" "\$@"
-WRAPPER
-  chmod +x /usr/local/bin/leetcode
-  log "Installed /usr/local/bin/leetcode wrapper"
-}
-
-setup_leetcode() {
-  [[ "$INSTALL_LEETCODE_CLI" != "true" ]] && return 0
-  local lc="/data/home/$DEV_USER/projects/leetcode"
-  sudo -u "$DEV_USER" mkdir -p "$lc"/{solutions,cache}
-  ensure_dev_nvm
-  if ! sudo -u "$DEV_USER" bash -lc '
-    set -euo pipefail
-    export NVM_DIR="$HOME/.nvm"
-    . "$NVM_DIR/nvm.sh"
-    nvm use 20
-    export PATH="$(dirname "$(nvm which current)"):$PATH"
-    npm install -g leetcode-cli
-  '; then
-    log "ERROR: leetcode-cli install failed"
-    return 1
-  fi
-  install_leetcode_wrapper
-  if [[ ! -d "$lc/docs/.git" ]]; then
-    sudo -u "$DEV_USER" git clone --depth 1 https://github.com/doocs/leetcode.git "$lc/docs"
-  fi
 }
 
 setup_autostop() {
@@ -292,7 +254,6 @@ setup_ssh_hardening
 if dev=$(wait_for_data_device); then
   mount_data_volume "$dev"
   setup_packages
-  setup_leetcode
   setup_autostop
   date -Is > /data/.initialized
   log "Setup complete"

@@ -56,12 +56,6 @@ variable "install_docker" {
   default     = false
 }
 
-variable "install_leetcode_cli" {
-  description = "是否安装 leetcode-cli + 离线题面（无浏览器刷题）"
-  type        = bool
-  default     = true
-}
-
 variable "dev_username" {
   description = "开发用户名"
   type        = string
@@ -71,7 +65,7 @@ variable "dev_username" {
 variable "auto_stop_idle_minutes" {
   description = "无活动多少分钟后自动停机，0 表示关闭"
   type        = number
-  default     = 30
+  default     = 120
 }
 
 variable "auto_stop_check_interval_minutes" {

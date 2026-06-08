@@ -34,7 +34,7 @@ data.aws_instance.dev           # read public_ip after attach
 main.tf
   templatefile("user-data.sh.tpl", { setup_script = ... })
     setup_script = templatefile("files/dev-box-setup.sh.tpl", {
-      dev_username, install_docker, install_leetcode_cli,
+      dev_username, install_docker,
       ssh_public_key, auto_stop_*, aws_region,
       auto_stop_script_b64, block_ssh_until_ready
     })
@@ -53,9 +53,8 @@ main.tf
 | `ssh_public_key_path` | `~/.ssh/id_ed25519.pub` | 本地公钥 |
 | `allowed_ssh_cidr` | (必填) | 公网 IP/32 |
 | `install_docker` | false | Docker |
-| `install_leetcode_cli` | true | leetcode-cli + doocs |
 | `dev_username` | dev | SSH 用户 |
-| `auto_stop_idle_minutes` | 30 | 0=关闭 |
+| `auto_stop_idle_minutes` | 120 | 0=关闭 |
 | `auto_stop_check_interval_minutes` | 5 | 检测间隔 |
 | `block_ssh_until_ready` | true | 初始化 SSH 门禁 |
 
@@ -70,13 +69,11 @@ main.tf
 | `setup_ssh_hardening` | sshd 配置、ubuntu 锁定、ssh-gate |
 | `setup_packages` | apt 基础包 |
 | `setup_git` | git 全局配置占位 |
-| `setup_cpp_toolchain` | g++/cmake/clang 校验 |
+| `setup_cpp_toolchain` | g++/cmake/clang/clangd 校验 |
 | `ensure_dev_nvm` | swap + nvm Node 20 |
-| `setup_leetcode` | npm leetcode-cli + doocs clone |
-| `install_leetcode_wrapper` | `/usr/local/bin/leetcode` PATH 包装 |
 | `setup_autostop` | auto-stop timer + keepalive |
 
-main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_data_volume` → `setup_packages` → `setup_leetcode` → `setup_autostop` → `/data/.initialized`
+main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_data_volume` → `setup_packages` → `setup_autostop` → `/data/.initialized`
 
 ## 本地脚本索引
 
@@ -94,7 +91,6 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 | `vscode-ssh.sh` | 写 ~/.ssh/config |
 | `wait-ready.sh` | SSH + initialized 轮询 |
 | `fix-instance.sh` | 远程重跑 setup |
-| `setup-leetcode.sh` | 补装 leetcode（少见） |
 
 ### scripts/lib/
 
@@ -102,7 +98,6 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 |------|------|
 | `tfvars.sh` | `tfvar()`, `update_allowed_ssh_cidr()` |
 | `ssh_config.sh` | `write_vscode_ssh_block()` |
-| `nvm-dev.sh` | 远程 nvm 辅助（setup-leetcode 用） |
 
 ## 实例内关键路径
 
@@ -111,12 +106,11 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 | `/data` | EBS 挂载点 |
 | `/data/home/dev` | 持久化 home |
 | `/data/.initialized` | setup 完成标记 |
-| `~/projects/leetcode` | 刷题目录 |
+| `~/projects` | 代码目录 |
 | `/usr/local/bin/dev-box-setup.sh` | bootstrap 脚本 |
 | `/usr/local/bin/dev-box-ssh-gate` | SSH 门禁 |
 | `/usr/local/bin/auto-stop.sh` | 空闲停机 |
 | `/usr/local/bin/keepalive` | 延长在线 |
-| `/usr/local/bin/leetcode` | nvm PATH 包装 |
 
 ## systemd 单元
 

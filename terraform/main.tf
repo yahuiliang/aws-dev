@@ -145,7 +145,6 @@ resource "aws_spot_instance_request" "dev" {
     setup_script = templatefile("${path.module}/files/dev-box-setup.sh.tpl", {
       dev_username                     = var.dev_username
       install_docker                   = var.install_docker
-      install_leetcode_cli             = var.install_leetcode_cli
       ssh_public_key                   = local.ssh_public_key
       auto_stop_idle_minutes           = var.auto_stop_idle_minutes
       auto_stop_check_interval_minutes = var.auto_stop_check_interval_minutes

@@ -21,7 +21,6 @@ teardown() {
 
 @test "tfvar 读取布尔变量" {
   [ "$(tfvar install_docker false)" = "true" ]
-  [ "$(tfvar install_leetcode_cli true)" = "false" ]
   [ "$(tfvar block_ssh_until_ready false)" = "true" ]
 }
 

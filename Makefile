@@ -1,7 +1,7 @@
 # vibe-dev 远程开发机 — 常用命令
 # 用法: make <命令>
 
-.PHONY: check init set-ip ip up down destroy restart stop start ssh info cursor vscode setup-leetcode fix test wait-ready
+.PHONY: check init set-ip ip up down destroy restart stop start ssh info cursor vscode fix test wait-ready
 
 # 检查本地环境：aws/terraform/jq 是否安装，AWS 是否已登录
 check:
@@ -51,10 +51,6 @@ info:
 # 写入 ~/.ssh/config，供 Cursor / VS Code Remote SSH 连接 aws-vibe-dev
 cursor vscode:
 	@./scripts/vscode-ssh.sh
-
-# 补装 LeetCode 环境（部署时 user-data 已自动安装，一般不需要）
-setup-leetcode:
-	@./scripts/setup-leetcode.sh
 
 # user-data 失败时修复 dev 用户 SSH、数据盘与开发环境
 fix:

@@ -67,4 +67,4 @@ for delay in 30 60 120; do
 done
 
 systemctl start dev-box-setup-retry.timer || true
-log "user-data finished (leetcode 等 user-data 完成后约 3–8 分钟可用)"
+log "user-data finished (开发环境 user-data 完成后约 3–8 分钟可用)"
