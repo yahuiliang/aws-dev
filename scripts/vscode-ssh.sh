@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# 写入 ~/.ssh/config，供 Cursor / VS Code Remote SSH 使用
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TF_DIR="$ROOT/terraform"
+
+cd "$TF_DIR"
+
+IP=$(terraform output -raw public_ip 2>/dev/null || true)
+
+# shellcheck source=lib/tfvars.sh
+source "$ROOT/scripts/lib/tfvars.sh"
+# shellcheck source=lib/ssh_config.sh
+source "$ROOT/scripts/lib/ssh_config.sh"
+TFVARS_FILE="$TF_DIR/terraform.tfvars"
+
+USER=$(tfvar dev_username dev)
+PUB_KEY=$(tfvar ssh_public_key_path "~/.ssh/id_ed25519.pub")
+PUB_KEY="${PUB_KEY/#\~/$HOME}"
+IDENTITY_FILE="${PUB_KEY%.pub}"
+if [[ ! -f "$IDENTITY_FILE" && -f "$HOME/.ssh/id_rsa" ]]; then
+  IDENTITY_FILE="$HOME/.ssh/id_rsa"
+fi
+
+if [[ -z "$IP" || "$IP" == "null" ]]; then
+  echo "未找到实例 IP"
+  exit 1
+fi
+
+SSH_CONFIG="$HOME/.ssh/config"
+write_vscode_ssh_block "$SSH_CONFIG" "$IP" "$USER" "$IDENTITY_FILE"
+
+echo "已写入 ~/.ssh/config -> Host aws-vibe-dev ($IP)"
+echo "  User=$USER  IdentityFile=$IDENTITY_FILE"
+echo "Cursor: Remote-SSH 连接 aws-vibe-dev"

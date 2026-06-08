@@ -1,0 +1,22 @@
+# 复制为 terraform.tfvars 后修改
+# cp terraform.tfvars.example terraform.tfvars
+
+aws_region         = "us-west-2"   # 湾区推荐（俄勒冈，低延迟 + Spot 稳定）；极致延迟试 us-west-1
+project_name       = "vibe-dev"
+instance_type      = "t4g.micro"     # Graviton ARM 最便宜；卡顿可改 t4g.small
+spot_max_price     = ""             # 留空 = 最高按需价，一般能拿到 Spot
+
+root_volume_size   = 8
+data_volume_size   = 8              # 刷题够用（题面 + 代码）
+
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+allowed_ssh_cidr    = "YOUR_PUBLIC_IP/32"   # 必改！查公网 IP: curl -4 ifconfig.me
+
+install_docker       = false  # 刷题不需要 Docker
+install_leetcode_cli = true    # 部署时自动装 leetcode-cli + 离线题面
+dev_username         = "dev"
+
+# 空闲自动停机（默认 30 分钟无活动 stop，0 = 关闭）
+auto_stop_idle_minutes           = 30
+auto_stop_check_interval_minutes = 5   # 每 5 分钟检测一次，连续 6 次空闲 = 30 分钟
+block_ssh_until_ready            = true   # 初始化完成前拒绝 dev SSH

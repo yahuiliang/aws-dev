@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# 一键部署 / 更新开发机
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TF_DIR="$ROOT/terraform"
+
+cd "$TF_DIR"
+
+if [[ ! -f terraform.tfvars ]]; then
+  echo "未找到 terraform.tfvars，正在从示例复制..."
+  cp terraform.tfvars.example terraform.tfvars
+fi
+
+if grep -qE 'allowed_ssh_cidr\s*=\s*"(0\.0\.0\.0/0|YOUR_PUBLIC_IP/32)"' terraform.tfvars; then
+  echo "allowed_ssh_cidr 未设置，正在自动获取公网 IP..."
+  "$ROOT/scripts/set-my-ip.sh"
+fi
+
+if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
+  if [[ -f ~/.ssh/id_rsa.pub ]]; then
+    echo "未找到 id_ed25519.pub，改用 ~/.ssh/id_rsa.pub"
+    sed -i '' 's#^[[:space:]]*ssh_public_key_path.*#ssh_public_key_path = "~/.ssh/id_rsa.pub"#' terraform.tfvars
+  else
+    echo "未找到 SSH 公钥，正在生成 ed25519..."
+    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "aws-dev-box"
+  fi
+fi
+
+terraform init -upgrade
+terraform apply -auto-approve "$@"
+
+echo ""
+echo "→ 等待环境就绪..."
+"$ROOT/scripts/wait-ready.sh"
+
+echo ""
+echo "========== 部署完成 =========="
+terraform output -json | jq -r '"SSH: \(.ssh_command.value)"'
+echo "Cursor:  运行 make cursor 配置 Remote SSH"
