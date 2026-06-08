@@ -1,0 +1,24 @@
+---
+description: Commit messages must be a single line
+alwaysApply: true
+---
+
+# Commit Message Format
+
+Use **one line only** — no subject/body split, no blank line, no multi-paragraph body.
+
+```bash
+# ✅ GOOD
+git commit -m "Add ec2-remote-dev skill for repo architecture guidance"
+
+# ❌ BAD — multiple lines or body
+git commit -m "Add skill
+
+Document Terraform and bootstrap patterns for future development."
+```
+
+Guidelines:
+
+- Imperative mood, concise summary of **why** (not a changelog dump)
+- No trailing period
+- HEREDOC is fine; keep the message to a single line inside it
