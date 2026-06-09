@@ -24,6 +24,11 @@ teardown() {
   [ "$(tfvar block_ssh_until_ready false)" = "true" ]
 }
 
+@test "tfvar 读取数字变量" {
+  [ "$(tfvar auto_stop_idle_minutes 99)" = "0" ]
+  [ "$(tfvar auto_stop_check_interval_minutes 99)" = "5" ]
+}
+
 @test "tfvar 缺失时使用默认值" {
   [ "$(tfvar nonexistent_key fallback)" = "fallback" ]
 }

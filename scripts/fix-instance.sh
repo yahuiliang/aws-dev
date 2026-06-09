@@ -23,6 +23,12 @@ if [[ -z "$IP" || "$IP" == "null" ]]; then
   exit 1
 fi
 
+echo "→ 同步本地 dev-box-setup 脚本..."
+# shellcheck source=lib/render_setup.sh
+source "$ROOT/scripts/lib/render_setup.sh"
+render_dev_box_setup "$TF_DIR" | ssh "${SSH_OPTS[@]}" "$USER@$IP" \
+  'sudo tee /usr/local/bin/dev-box-setup.sh > /dev/null && sudo chmod +x /usr/local/bin/dev-box-setup.sh'
+
 echo "→ 重跑 dev-box-setup ($USER@$IP)..."
 if ! ssh "${SSH_OPTS[@]}" "$USER@$IP" 'sudo /usr/local/bin/dev-box-setup.sh'; then
   echo "失败：dev 用户无法 SSH 或 setup 脚本不存在，试 make restart"

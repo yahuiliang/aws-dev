@@ -11,7 +11,11 @@ tfvar() {
     | sed -n 's/^[[:space:]]*[^=]*=[[:space:]]*"\([^"]*\)".*/\1/p') || true
   if [[ -z "$val" ]]; then
     val=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | head -1 \
-      | sed -E 's/^[[:space:]]*[^=]*=[[:space:]]*(true|false).*/\1/') || true
+      | sed -En 's/^[[:space:]]*[^=]*=[[:space:]]*([0-9]+).*/\1/p') || true
+  fi
+  if [[ -z "$val" ]]; then
+    val=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | head -1 \
+      | sed -En 's/^[[:space:]]*[^=]*=[[:space:]]*(true|false).*/\1/p') || true
   fi
   echo "${val:-$default}"
 }

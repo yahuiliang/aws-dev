@@ -206,14 +206,15 @@ ensure_dev_nvm() {
     nvm use default
     npm config delete prefix 2>/dev/null || true
     export PATH="$(dirname "$(nvm which current)"):$PATH"
-    grep -q NVM_DIR "$HOME/.bashrc" 2>/dev/null || cat >> "$HOME/.bashrc" <<'"'"'EOF'"'"'
+    # 写入 .profile：login shell 会加载；.bashrc 在非交互模式下会提前 return
+    touch "$HOME/.profile"
+    grep -q NVM_DIR "$HOME/.profile" 2>/dev/null || cat >> "$HOME/.profile" <<'"'"'EOF'"'"'
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+export NODE_OPTIONS="--no-warnings"
 EOF
-    grep -q NODE_OPTIONS "$HOME/.bashrc" 2>/dev/null || \
-      echo "export NODE_OPTIONS=\"--no-warnings\"" >> "$HOME/.bashrc"
   '
 }
 
