@@ -84,12 +84,16 @@ mount_data_volume() {
   mkdir -p "/data/home/$DEV_USER"
   if [[ ! -L "/home/$DEV_USER" ]]; then
     if [[ -d "/home/$DEV_USER" && ! -L "/home/$DEV_USER" ]]; then
-      rsync -a "/home/$DEV_USER/" "/data/home/$DEV_USER/" || true
+      # 数据盘已有 home 时勿用根盘覆盖（会冲掉 .bashrc 里的 nvm 等配置）
+      if [[ -z "$(ls -A "/data/home/$DEV_USER" 2>/dev/null)" ]]; then
+        rsync -a "/home/$DEV_USER/" "/data/home/$DEV_USER/" || true
+      fi
       rm -rf "/home/$DEV_USER"
     fi
     ln -sfn "/data/home/$DEV_USER" "/home/$DEV_USER"
   fi
   chown -R "$DEV_USER:$DEV_USER" "/data/home/$DEV_USER"
+  setup_login_hint
   # 确保密钥在持久化盘
   mkdir -p "/data/home/$DEV_USER/.ssh"
   echo "$SSH_PUBLIC_KEY" > "/data/home/$DEV_USER/.ssh/authorized_keys"
@@ -202,6 +206,12 @@ ensure_dev_nvm() {
     nvm use default
     npm config delete prefix 2>/dev/null || true
     export PATH="$(dirname "$(nvm which current)"):$PATH"
+    grep -q NVM_DIR "$HOME/.bashrc" 2>/dev/null || cat >> "$HOME/.bashrc" <<'"'"'EOF'"'"'
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+EOF
     grep -q NODE_OPTIONS "$HOME/.bashrc" 2>/dev/null || \
       echo "export NODE_OPTIONS=\"--no-warnings\"" >> "$HOME/.bashrc"
   '
