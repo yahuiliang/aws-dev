@@ -31,7 +31,10 @@ if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
 fi
 
 terraform init -upgrade
-terraform apply -auto-approve "$@"
+
+# shellcheck source=lib/spot_apply.sh
+source "$ROOT/scripts/lib/spot_apply.sh"
+spot_apply_with_fallback "$TF_DIR" "$@"
 
 echo ""
 echo "→ 等待环境就绪..."

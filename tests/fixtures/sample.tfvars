@@ -1,6 +1,7 @@
 aws_region         = "us-west-2"
 project_name       = "vibe-dev-test"
 instance_type      = "t4g.micro"
+instance_type_fallbacks = ["t4g.small", "t4g.medium"]
 ssh_public_key_path = "KEY_PATH_PLACEHOLDER"
 allowed_ssh_cidr    = "1.2.3.4/32"
 install_docker      = true

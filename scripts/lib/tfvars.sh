@@ -20,6 +20,25 @@ tfvar() {
   echo "${val:-$default}"
 }
 
+# 读取 HCL 字符串列表，如 instance_type_fallbacks = ["t4g.micro", "t4g.medium"]
+tfvar_list() {
+  local key="$1"
+  local file="${TFVARS_FILE:?TFVARS_FILE 未设置}"
+  local line item
+
+  line=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | head -1) || true
+  [[ -n "$line" ]] || return 0
+
+  if echo "$line" | grep -qE '\[[[:space:]]*\]'; then
+    return 0
+  fi
+
+  while IFS= read -r item; do
+    item=${item//\"/}
+    [[ -n "$item" ]] && echo "$item"
+  done < <(echo "$line" | grep -oE '"[^"]+"')
+}
+
 # 更新 allowed_ssh_cidr（set-my-ip.sh 核心逻辑，可单测）
 update_allowed_ssh_cidr() {
   local tfvars_file="$1" new_cidr="$2"

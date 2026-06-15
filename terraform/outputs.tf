@@ -3,6 +3,11 @@ output "instance_id" {
   value       = aws_spot_instance_request.dev.spot_instance_id
 }
 
+output "instance_type" {
+  description = "实际 Spot 实例规格（可能与 tfvars 首选不同，若触发了 fallback）"
+  value       = aws_spot_instance_request.dev.instance_type
+}
+
 output "public_ip" {
   description = "公网 IP，用于 SSH / VS Code Remote"
   value       = data.aws_instance.dev.public_ip

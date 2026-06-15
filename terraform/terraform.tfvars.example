@@ -3,8 +3,9 @@
 
 aws_region         = "us-west-2"   # 湾区推荐（俄勒冈，低延迟 + Spot 稳定）；极致延迟试 us-west-1
 project_name       = "vibe-dev"
-instance_type      = "t4g.small"  # 2GB 内存（远程桌面+Firefox）；纯刷题可改 t4g.micro
-spot_max_price     = ""             # 留空 = 最高按需价，一般能拿到 Spot
+instance_type           = "t4g.small"  # 2GB 内存（远程桌面+Firefox）；纯刷题可改 t4g.micro
+instance_type_fallbacks = ["t4g.micro", "t4g.medium"]  # Spot 无容量时依次重试；[] = 关闭
+spot_max_price          = ""             # 留空 = 最高按需价，一般能拿到 Spot
 
 root_volume_size   = 8
 data_volume_size   = 8              # 刷题够用（题面 + 代码）

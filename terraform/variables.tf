@@ -16,6 +16,12 @@ variable "instance_type" {
   default     = "t4g.micro"
 }
 
+variable "instance_type_fallbacks" {
+  description = "Spot 容量不足时依次尝试的备选规格（make up/restart 自动重试）；留空 [] 关闭"
+  type        = list(string)
+  default     = ["t4g.micro", "t4g.medium"]
+}
+
 variable "spot_max_price" {
   description = "Spot 最高出价（美元/小时），留空则按按需价"
   type        = string

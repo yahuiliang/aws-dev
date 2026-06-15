@@ -13,7 +13,10 @@ TFVARS_FILE="$TF_DIR/terraform.tfvars"
 ensure_dev_rdp_password
 
 terraform taint -allow-missing aws_spot_instance_request.dev 2>/dev/null || true
-terraform apply -auto-approve
+
+# shellcheck source=lib/spot_apply.sh
+source "$ROOT/scripts/lib/spot_apply.sh"
+spot_apply_with_fallback "$TF_DIR"
 
 echo "→ 等待环境就绪..."
 "$ROOT/scripts/wait-ready.sh"
