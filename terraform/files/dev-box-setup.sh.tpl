@@ -226,11 +226,66 @@ EOF
   '
 }
 
+write_firefox_desktop_entry() {
+  cat > /usr/share/applications/firefox-devbox.desktop <<'FDEEOF'
+[Desktop Entry]
+Version=1.0
+Name=Firefox
+Comment=Web Browser
+Exec=/opt/firefox/firefox %u
+Icon=/opt/firefox/browser/chrome/icons/default/default128.png
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupWMClass=firefox
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/about;
+FDEEOF
+  update-desktop-database 2>/dev/null || true
+}
+
+configure_default_browser() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+  [[ -x /opt/firefox/firefox ]] || return 0
+
+  local home="/data/home/$DEV_USER"
+
+  cat > /usr/local/bin/firefox-www-browser <<'FWEOF'
+#!/bin/sh
+exec /opt/firefox/firefox "$@"
+FWEOF
+  chmod +x /usr/local/bin/firefox-www-browser
+  update-alternatives --install /usr/bin/x-www-browser x-www-browser /usr/local/bin/firefox-www-browser 100 2>/dev/null || true
+  update-alternatives --set x-www-browser /usr/local/bin/firefox-www-browser 2>/dev/null || true
+  update-alternatives --install /usr/bin/gnome-www-browser gnome-www-browser /usr/local/bin/firefox-www-browser 100 2>/dev/null || true
+  update-alternatives --set gnome-www-browser /usr/local/bin/firefox-www-browser 2>/dev/null || true
+
+  mkdir -p "$home/.config/xfce4"
+  cat > "$home/.config/xfce4/helpers.rc" <<'HREOF'
+WebBrowser=firefox-devbox
+HREOF
+
+  if command -v xdg-mime &>/dev/null; then
+    sudo -u "$DEV_USER" env HOME="$home" USER="$DEV_USER" \
+      xdg-mime default firefox-devbox.desktop x-scheme-handler/http
+    sudo -u "$DEV_USER" env HOME="$home" USER="$DEV_USER" \
+      xdg-mime default firefox-devbox.desktop x-scheme-handler/https
+    sudo -u "$DEV_USER" env HOME="$home" USER="$DEV_USER" \
+      xdg-mime default firefox-devbox.desktop text/html
+    sudo -u "$DEV_USER" env HOME="$home" USER="$DEV_USER" \
+      xdg-mime default firefox-devbox.desktop application/xhtml+xml
+  fi
+
+  chown -R "$DEV_USER:$DEV_USER" "$home/.config"
+  log "Default browser: firefox-devbox (/opt/firefox/firefox)"
+}
+
 ensure_desktop_browser() {
   [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
 
   if [[ -x /opt/firefox/firefox ]] && /opt/firefox/firefox --version &>/dev/null; then
     log "Browser: $(/opt/firefox/firefox --version 2>/dev/null | head -1)"
+    write_firefox_desktop_entry
+    configure_default_browser
     return 0
   fi
 
@@ -249,21 +304,10 @@ ensure_desktop_browser() {
   rm -f "$tgz"
 
   ln -sf /opt/firefox/firefox /usr/local/bin/firefox
-
-  cat > /usr/share/applications/firefox-devbox.desktop <<'FDEEOF'
-[Desktop Entry]
-Version=1.0
-Name=Firefox
-Comment=Web Browser
-Exec=/opt/firefox/firefox %u
-Icon=/opt/firefox/browser/chrome/icons/default/default128.png
-Terminal=false
-Type=Application
-Categories=Network;WebBrowser;
-FDEEOF
-  update-desktop-database 2>/dev/null || true
+  write_firefox_desktop_entry
 
   if [[ -x /opt/firefox/firefox ]]; then
+    configure_default_browser
     log "Browser ready: firefox -> /opt/firefox/firefox"
     return 0
   fi
