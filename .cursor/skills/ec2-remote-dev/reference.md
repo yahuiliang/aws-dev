@@ -97,7 +97,7 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 | `down.sh` | targeted destroy 实例+attachment |
 | `destroy-all.sh` | 全量 destroy |
 | `restart.sh` | taint spot + spot_apply + wait |
-| `stop.sh` / `start.sh` | EC2 stop/start（非 terraform） |
+| `stop.sh` / `start.sh` | EC2 stop/start；`start` 含 Spot 等待、refresh IP、`vscode-ssh.sh` |
 | `ssh.sh` | 终端 SSH |
 | `info.sh` | terraform output |
 | `vscode-ssh.sh` | 写 ~/.ssh/config |
@@ -110,6 +110,7 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 |------|------|
 | `tfvars.sh` | `tfvar()`, `tfvar_list()`, `update_allowed_ssh_cidr()`, `update_dev_rdp_password()`, `ensure_dev_rdp_password()` |
 | `spot_apply.sh` | `spot_instance_types()`, `spot_apply_with_fallback()` |
+| `ec2_start.sh` | `start_instance_with_spot_retry()` — Spot stop/start 状态等待与重试 |
 | `ssh_config.sh` | `write_vscode_ssh_block()` |
 | `render_setup.sh` | `render_dev_box_setup()` |
 | `ready_check.sh` | `remote_setup_ready_script()` |
@@ -153,6 +154,7 @@ main 顺序：`setup_dev_user` → `setup_ssh_hardening` → 等盘 → `mount_d
 | `tests/tfvars.bats` | tfvar 解析、update_allowed_ssh_cidr |
 | `tests/ssh_config.bats` | write_vscode_ssh_block |
 | `tests/spot_apply.bats` | spot_instance_types、容量错误检测 |
+| `tests/ec2_start.bats` | Spot start 状态判断与重试辅助 |
 | `tests/ready.bats` | remote_setup_ready_script |
 | `tests/check_template.sh` | 渲染冒烟 + user-data gzip <16KB |
 | `tests/fixtures/sample.tfvars` | 测试用 tfvars |

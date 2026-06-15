@@ -36,7 +36,7 @@ restart:
 stop:
 	@./scripts/stop.sh
 
-# 启动已停止的实例（IP 可能变，之后跑 make cursor）
+# 启动已停止的实例（等待 Spot 就绪、刷新 IP、更新 SSH config）
 start:
 	@./scripts/start.sh
 

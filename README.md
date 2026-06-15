@@ -97,7 +97,7 @@ block_ssh_until_ready   = true          # 初始化完成前拒绝 SSH
 | `make down` | 销毁实例（**数据盘保留**，约 $1.3/月） |
 | `make destroy` | 销毁全部资源含数据盘（不可恢复） |
 | `make restart` | Spot 被回收或改配置后一键重建 |
-| `make stop` / `make start` | 临时停机省钱 |
+| `make stop` / `make start` | 临时停机省钱（`start` 自动刷新 IP 并更新 SSH config） |
 | `make ssh` | 终端 SSH 登录 |
 | `make cursor` | 写入 `~/.ssh/config`（Cursor Remote SSH） |
 | `make info` | 查看 IP 等信息 |
