@@ -148,6 +148,7 @@ EOF
 }
 
 setup_packages() {
+  reconcile_cursor_apt_repo
   apt-get update -y
   apt-get install -y \
     build-essential git curl wget unzip jq htop tmux zsh \
@@ -316,8 +317,34 @@ ensure_desktop_browser() {
   return 1
 }
 
+reconcile_cursor_apt_repo() {
+  local has_repo=false
+  grep -rq 'downloads.cursor.com/aptrepo' /etc/apt/sources.list.d/ 2>/dev/null && has_repo=true
+  [[ "$INSTALL_CURSOR" == "true" || "$has_repo" == "true" ]] || return 0
+
+  log "Reconciling Cursor apt repo (dedupe Signed-By)..."
+  rm -f /etc/apt/sources.list.d/cursor.list /etc/apt/sources.list.d/cursor.sources /etc/apt/keyrings/cursor.gpg
+
+  local arch keyring=/usr/share/keyrings/anysphere.gpg
+  arch=$(dpkg --print-architecture)
+  mkdir -p /usr/share/keyrings
+  curl -fsSL https://downloads.cursor.com/keys/anysphere.asc | gpg --dearmor > "$keyring"
+  chmod 644 "$keyring"
+
+  cat > /etc/apt/sources.list.d/cursor.sources <<EOF
+Types: deb
+URIs: https://downloads.cursor.com/aptrepo
+Suites: stable
+Components: main
+Architectures: $arch
+Signed-By: $keyring
+EOF
+}
+
 ensure_cursor() {
   [[ "$INSTALL_CURSOR" == "true" ]] || return 0
+
+  reconcile_cursor_apt_repo
 
   if command -v cursor &>/dev/null && cursor --version &>/dev/null; then
     log "Cursor: $(cursor --version 2>/dev/null | head -1) ($(cursor --version 2>/dev/null | tail -1))"
@@ -325,16 +352,8 @@ ensure_cursor() {
   fi
 
   log "Installing Cursor (official apt, arm64)..."
-  apt-get install -y --no-install-recommends gpg curl ca-certificates
-
-  mkdir -p /etc/apt/keyrings
-  curl -fsSL https://downloads.cursor.com/keys/anysphere.asc | gpg --dearmor > /etc/apt/keyrings/cursor.gpg
-  cat > /etc/apt/sources.list.d/cursor.list <<'CURLIST'
-deb [arch=arm64 signed-by=/etc/apt/keyrings/cursor.gpg] https://downloads.cursor.com/aptrepo stable main
-CURLIST
-
   apt-get update -y
-  apt-get install -y cursor
+  apt-get install -y --no-install-recommends cursor
 
   local de
   for de in /usr/share/applications/cursor*.desktop; do
@@ -390,11 +409,42 @@ XFEOF
   log "XFCE icons: Papirus theme + gvfs/mime/thumbnails configured"
 }
 
+ensure_pdf_viewer() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+
+  local marker="/var/lib/dev-box/pdf-viewer-ready"
+  if [[ -f "$marker" ]] && command -v evince &>/dev/null; then
+    return 0
+  fi
+  rm -f "$marker"
+
+  log "Installing PDF viewer (evince)..."
+  if ! apt-get install -y --no-install-recommends evince; then
+    log "ERROR: failed to install evince (check apt sources)"
+    return 1
+  fi
+  if ! command -v evince &>/dev/null; then
+    log "ERROR: evince not found after install"
+    return 1
+  fi
+
+  local home="/data/home/$DEV_USER"
+  if command -v xdg-mime &>/dev/null; then
+    sudo -u "$DEV_USER" env HOME="$home" USER="$DEV_USER" \
+      xdg-mime default org.gnome.Evince.desktop application/pdf
+  fi
+
+  mkdir -p /var/lib/dev-box
+  date -Is > "$marker"
+  log "PDF viewer ready: evince (default for application/pdf)"
+}
+
 setup_desktop() {
   [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
 
   ensure_desktop_browser
   ensure_xfce_icons
+  ensure_pdf_viewer
 
   local marker="/var/lib/dev-box/desktop-ready"
   local xsession="/data/home/$DEV_USER/.xsession"
