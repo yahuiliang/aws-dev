@@ -6,6 +6,7 @@ export DEBIAN_FRONTEND=noninteractive
 DEV_USER="${dev_username}"
 INSTALL_DOCKER="${install_docker}"
 INSTALL_DESKTOP="${install_desktop}"
+INSTALL_CURSOR="${install_cursor}"
 DESKTOP_RDP_PUBLIC="${desktop_rdp_public}"
 DEV_RDP_PASSWORD_B64='${dev_rdp_password_b64}'
 SSH_PUBLIC_KEY='${ssh_public_key}'
@@ -163,6 +164,7 @@ setup_packages() {
   fi
 
   setup_desktop
+  ensure_cursor
 }
 
 setup_git() {
@@ -267,6 +269,43 @@ FDEEOF
   fi
 
   log "ERROR: failed to install Firefox"
+  return 1
+}
+
+ensure_cursor() {
+  [[ "$INSTALL_CURSOR" == "true" ]] || return 0
+
+  if command -v cursor &>/dev/null && cursor --version &>/dev/null; then
+    log "Cursor: $(cursor --version 2>/dev/null | head -1) ($(cursor --version 2>/dev/null | tail -1))"
+    return 0
+  fi
+
+  log "Installing Cursor (official apt, arm64)..."
+  apt-get install -y --no-install-recommends gpg curl ca-certificates
+
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://downloads.cursor.com/keys/anysphere.asc | gpg --dearmor > /etc/apt/keyrings/cursor.gpg
+  cat > /etc/apt/sources.list.d/cursor.list <<'CURLIST'
+deb [arch=arm64 signed-by=/etc/apt/keyrings/cursor.gpg] https://downloads.cursor.com/aptrepo stable main
+CURLIST
+
+  apt-get update -y
+  apt-get install -y cursor
+
+  local de
+  for de in /usr/share/applications/cursor*.desktop; do
+    [[ -f "$de" ]] || continue
+    grep -q 'no-sandbox' "$de" && continue
+    sed -i 's|\(Exec=.*cursor[^ ]*\)|\1 --no-sandbox|' "$de"
+  done
+  update-desktop-database 2>/dev/null || true
+
+  if command -v cursor &>/dev/null; then
+    log "Cursor ready: $(cursor --version 2>/dev/null | head -1)"
+    return 0
+  fi
+
+  log "ERROR: failed to install Cursor"
   return 1
 }
 
@@ -385,7 +424,7 @@ unset XDG_RUNTIME_DIR' /etc/xrdp/startwm.sh
 
   mkdir -p /var/lib/dev-box
   date -Is > "$marker"
-  log "Desktop ready: Windows App -> 127.0.0.1:3389 (session=Xorg), user $DEV_USER, browser=firefox"
+  log "Desktop ready: Windows App -> 127.0.0.1:3389 (session=Xorg), user $DEV_USER, browser=firefox, cursor=$INSTALL_CURSOR"
 }
 
 setup_autostop() {

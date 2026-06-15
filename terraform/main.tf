@@ -154,6 +154,7 @@ resource "aws_spot_instance_request" "dev" {
       dev_username                     = var.dev_username
       install_docker                   = var.install_docker
       install_desktop                  = var.install_desktop
+      install_cursor                   = var.install_cursor
       desktop_rdp_public               = var.desktop_rdp_public
       dev_rdp_password_b64             = var.dev_rdp_password != "" ? base64encode(var.dev_rdp_password) : ""
       ssh_public_key                   = local.ssh_public_key

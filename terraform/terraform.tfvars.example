@@ -15,6 +15,7 @@ allowed_ssh_cidr    = "YOUR_PUBLIC_IP/32"   # 必改！查公网 IP: curl -4 ifc
 
 install_docker       = false  # 刷题不需要 Docker
 install_desktop      = true   # XFCE + xrdp + Firefox；Mac Windows App + make cursor（SSH 隧道）
+install_cursor       = true   # 远程桌面预装 Cursor IDE（官方 apt arm64）；不需要可关
 desktop_rdp_public   = false  # true = 开放 3389 直连（仍限 allowed_ssh_cidr）
 # dev_rdp_password 由 make up 交互设置，也可在此手动填写
 dev_username         = "dev"

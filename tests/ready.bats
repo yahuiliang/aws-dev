@@ -30,3 +30,12 @@ EOF
   [[ "$script" == *"xrdp"* ]]
   [[ "$script" == *"/opt/firefox/firefox"* ]]
 }
+
+@test "remote_setup_ready_script install_cursor 时检查 cursor" {
+  cat >> "$TFVARS" <<'EOF'
+install_cursor = true
+EOF
+  script=$(remote_setup_ready_script)
+  [[ "$script" == *"command -v cursor"* ]]
+  [[ "$script" == *"cursor --version"* ]]
+}

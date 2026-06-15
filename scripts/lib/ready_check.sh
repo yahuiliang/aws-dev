@@ -3,9 +3,10 @@
 # 用法: TFVARS_FILE=... source scripts/lib/ready_check.sh
 
 remote_setup_ready_script() {
-  local install_desktop install_docker
+  local install_desktop install_docker install_cursor
   install_desktop=$(tfvar install_desktop true)
   install_docker=$(tfvar install_docker false)
+  install_cursor=$(tfvar install_cursor true)
 
   cat <<'EOF'
 set -e
@@ -27,6 +28,13 @@ EOF
   if [[ "$install_docker" == "true" ]]; then
     cat <<'EOF'
 command -v docker >/dev/null || exit 1
+EOF
+  fi
+
+  if [[ "$install_cursor" == "true" ]]; then
+    cat <<'EOF'
+command -v cursor >/dev/null || exit 1
+cursor --version >/dev/null 2>&1 || exit 1
 EOF
   fi
 

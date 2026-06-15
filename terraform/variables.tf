@@ -68,6 +68,12 @@ variable "install_desktop" {
   default     = true
 }
 
+variable "install_cursor" {
+  description = "是否安装 Cursor IDE（官方 apt arm64；远程桌面下可用，约 +900MB 磁盘）"
+  type        = bool
+  default     = true
+}
+
 variable "desktop_rdp_public" {
   description = "是否对 allowed_ssh_cidr 开放 3389 直连 RDP；false 时 xrdp 仅监听 127.0.0.1，走 SSH 隧道"
   type        = bool

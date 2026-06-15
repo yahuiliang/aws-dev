@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF="$ROOT/terraform"
 KEY="${1:-$ROOT/tests/fixtures/test_key.pub}"
 
-ARGS="{ dev_username = \"dev\", install_docker = true, install_desktop = true, desktop_rdp_public = false, dev_rdp_password_b64 = \"\", ssh_public_key = chomp(file(\"${KEY}\")), auto_stop_idle_minutes = 30, auto_stop_check_interval_minutes = 5, aws_region = \"us-west-2\", auto_stop_script_b64 = base64encode(file(\"files/auto-stop.sh\")), block_ssh_until_ready = true }"
+ARGS="{ dev_username = \"dev\", install_docker = true, install_desktop = true, install_cursor = true, desktop_rdp_public = false, dev_rdp_password_b64 = \"\", ssh_public_key = chomp(file(\"${KEY}\")), auto_stop_idle_minutes = 30, auto_stop_check_interval_minutes = 5, aws_region = \"us-west-2\", auto_stop_script_b64 = base64encode(file(\"files/auto-stop.sh\")), block_ssh_until_ready = true }"
 
 LEN=$(terraform -chdir="$TF" console -no-color <<< "length(templatefile(\"files/dev-box-setup.sh.tpl\", ${ARGS}))" | tr -d '[:space:]')
 [[ "$LEN" =~ ^[0-9]+$ ]] || { echo "templatefile 返回非数字: $LEN"; exit 1; }
