@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 不用时停止实例省 Spot 费（EBS 仍计费，40GB 约 $3.2/月）
+# 不用时停止实例省 Spot 费（EBS 仍计费，默认 16GB 约 $1.3/月）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

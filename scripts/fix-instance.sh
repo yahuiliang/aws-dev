@@ -7,16 +7,14 @@ TF_DIR="$ROOT/terraform"
 
 # shellcheck source=lib/tfvars.sh
 source "$ROOT/scripts/lib/tfvars.sh"
+# shellcheck source=lib/ssh_connect.sh
+source "$ROOT/scripts/lib/ssh_connect.sh"
 TFVARS_FILE="$TF_DIR/terraform.tfvars"
 
 cd "$TF_DIR"
 IP=$(terraform output -raw public_ip 2>/dev/null || true)
 USER=$(tfvar dev_username dev)
-PUB_PATH=$(tfvar ssh_public_key_path "~/.ssh/id_rsa.pub")
-PUB_PATH="${PUB_PATH/#\~/$HOME}"
-KEY="${PUB_PATH%.pub}"
-SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
-[[ -f "$KEY" ]] && SSH_OPTS+=(-i "$KEY")
+build_ssh_opts -o BatchMode=yes -o ConnectTimeout=15
 
 if [[ -z "$IP" || "$IP" == "null" ]]; then
   echo "未找到运行中的实例，请先 make up 或 make start"

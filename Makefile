@@ -62,4 +62,4 @@ test:
 
 # 等待实例 setup 完成（make up 已自动调用）
 wait-ready:
-	@chmod +x ./scripts/wait-ready.sh && ./scripts/wait-ready.sh
+	@./scripts/wait-ready.sh

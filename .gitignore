@@ -2,9 +2,7 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
 terraform/terraform.tfvars
-terraform.tfstate
 
 # Secrets
 *.pem

@@ -6,7 +6,7 @@ render_dev_box_setup() {
   local tf_dir="$1"
   local pub_path install_docker idle_min auto_stop_b64
 
-  pub_path=$(tfvar ssh_public_key_path "~/.ssh/id_rsa.pub")
+  pub_path=$(tfvar ssh_public_key_path "~/.ssh/id_ed25519.pub")
   pub_path="${pub_path/#\~/$HOME}"
   install_docker=$(tfvar install_docker false)
   idle_min=$(tfvar auto_stop_idle_minutes 0)

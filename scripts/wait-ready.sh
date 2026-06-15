@@ -11,16 +11,14 @@ POLL="${WAIT_READY_POLL:-15}"
 source "$ROOT/scripts/lib/tfvars.sh"
 # shellcheck source=lib/ready_check.sh
 source "$ROOT/scripts/lib/ready_check.sh"
+# shellcheck source=lib/ssh_connect.sh
+source "$ROOT/scripts/lib/ssh_connect.sh"
 TFVARS_FILE="$TF_DIR/terraform.tfvars"
 
 cd "$TF_DIR"
 IP=$(terraform output -raw public_ip 2>/dev/null || true)
 USER=$(tfvar dev_username dev)
-PUB_PATH=$(tfvar ssh_public_key_path "~/.ssh/id_rsa.pub")
-PUB_PATH="${PUB_PATH/#\~/$HOME}"
-KEY="${PUB_PATH%.pub}"
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
-[[ -f "$KEY" ]] && SSH_OPTS+=(-i "$KEY")
+build_ssh_opts -o BatchMode=yes -o ConnectTimeout=10
 
 READY_SCRIPT=$(remote_setup_ready_script)
 

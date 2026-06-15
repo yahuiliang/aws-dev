@@ -4,18 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF_DIR="$ROOT/terraform"
 
+# shellcheck source=lib/tfvars.sh
+source "$ROOT/scripts/lib/tfvars.sh"
+# shellcheck source=lib/ssh_connect.sh
+source "$ROOT/scripts/lib/ssh_connect.sh"
+TFVARS_FILE="$TF_DIR/terraform.tfvars"
+
 cd "$TF_DIR"
 
 IP=$(terraform output -raw public_ip 2>/dev/null || true)
-
-tfvar() {
-  local key="$1" default="${2:-}"
-  local val
-  val=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" terraform.tfvars 2>/dev/null | head -1 \
-    | sed -n 's/^[[:space:]]*[^=]*=[[:space:]]*"\([^"]*\)".*/\1/p') || true
-  echo "${val:-$default}"
-}
-
 USER=$(tfvar dev_username dev)
 
 if [[ -z "$IP" || "$IP" == "null" ]]; then
@@ -23,5 +20,6 @@ if [[ -z "$IP" || "$IP" == "null" ]]; then
   exit 1
 fi
 
+build_ssh_opts
 echo "连接 $USER@$IP ..."
-exec ssh -o StrictHostKeyChecking=accept-new "$USER@$IP" "$@"
+exec ssh "${SSH_OPTS[@]}" "$USER@$IP" "$@"

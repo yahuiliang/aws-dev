@@ -1,9 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -48,7 +44,7 @@ resource "aws_key_pair" "dev" {
 
 resource "aws_security_group" "dev" {
   name        = "${var.project_name}-sg"
-  description = "Dev box: SSH only"
+  description = "Dev box: SSH and optional RDP"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -78,7 +74,7 @@ resource "aws_security_group" "dev" {
   }
 }
 
-# 持久化数据盘 — destroy 实例时保留（prevent_destroy 可在 tfvars 控制）
+# 持久化数据盘 — make down 销毁实例时保留
 resource "aws_ebs_volume" "data" {
   availability_zone = data.aws_subnet.dev.availability_zone
   size              = var.data_volume_size

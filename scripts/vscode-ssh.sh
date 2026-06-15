@@ -13,15 +13,12 @@ IP=$(terraform output -raw public_ip 2>/dev/null || true)
 source "$ROOT/scripts/lib/tfvars.sh"
 # shellcheck source=lib/ssh_config.sh
 source "$ROOT/scripts/lib/ssh_config.sh"
+# shellcheck source=lib/ssh_connect.sh
+source "$ROOT/scripts/lib/ssh_connect.sh"
 TFVARS_FILE="$TF_DIR/terraform.tfvars"
 
 USER=$(tfvar dev_username dev)
-PUB_KEY=$(tfvar ssh_public_key_path "~/.ssh/id_ed25519.pub")
-PUB_KEY="${PUB_KEY/#\~/$HOME}"
-IDENTITY_FILE="${PUB_KEY%.pub}"
-if [[ ! -f "$IDENTITY_FILE" && -f "$HOME/.ssh/id_rsa" ]]; then
-  IDENTITY_FILE="$HOME/.ssh/id_rsa"
-fi
+IDENTITY_FILE=$(ssh_identity_from_tfvars)
 
 if [[ -z "$IP" || "$IP" == "null" ]]; then
   echo "未找到实例 IP"

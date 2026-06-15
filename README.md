@@ -2,16 +2,17 @@
 
 本地电脑性能不够时，用 **Spot EC2 + 持久化 EBS** 搭一台便宜云开发机，适合 **刷题 / 远程开发**（也可做小项目 vibe coding）。
 
-**推荐用法：本地 Cursor + Remote SSH**，只暴露 22 端口。
+**推荐用法：本地 Cursor + Remote SSH**（仅对外暴露 22 端口）。默认还会安装 **XFCE + xrdp + Firefox**，可通过 SSH 隧道远程桌面（不额外开放公网端口）。
 
-**默认规格：** `t4g.micro`（Graviton ARM，同区域最便宜档）+ 8GB 系统盘 + 8GB 数据盘。
+**默认规格（见 `terraform.tfvars.example`）：** `t4g.small`（2GB，适合桌面 + 浏览器）+ 8GB 系统盘 + 8GB 数据盘。纯刷题可改 `t4g.micro`。
 
 ## 架构
 
 ```
-┌─────────────┐     SSH（仅 22 端口）        ┌──────────────────┐
+┌─────────────┐   SSH 22（+ 可选 RDP 隧道）   ┌──────────────────┐
 │ Cursor/Mac  │ ───────────────────────────► │  Spot EC2        │
-│  Remote SSH │                              │  t4g.micro (ARM) │
+│  Remote SSH │   make cursor 写 LocalForward  │  t4g.small (ARM) │
+│  Windows App│ ◄── 127.0.0.1:3389 ────────── │  XFCE + xrdp     │
 └─────────────┘                              └────────┬─────────┘
                                                       │ 挂载
                                              ┌────────▼─────────┐
@@ -25,7 +26,8 @@
 
 | 项目 | 参考价格 |
 |------|----------|
-| t4g.micro Spot (ARM) | ~$0.004–0.008/小时（≈ $2–6/月 若 24h 开） |
+| t4g.small Spot (ARM) | ~$0.008–0.015/小时（≈ $4–10/月 若 24h 开） |
+| t4g.micro Spot（纯刷题） | ~$0.004–0.008/小时（≈ $2–6/月 若 24h 开） |
 | 16GB gp3 磁盘（8+8） | ~$1.3/月 |
 | 默认 VPC / 公网 IP | 无 NAT 费用 |
 
@@ -34,7 +36,7 @@
 - 不用时 `make stop` 停实例（只付 EBS）
 - 默认 **2 小时无活动自动停机**
 - 默认 `us-west-2`（湾区低延迟）；极致延迟 `us-west-1`；最便宜 `us-east-1`
-- 卡顿可改 `instance_type = "t4g.small"`（仍用 ARM）
+- 不需要桌面时设 `install_desktop = false`，可改回 `t4g.micro`
 
 ## 前置条件
 
@@ -63,6 +65,7 @@ make init
 make set-ip
 
 # 3. 部署（make up 会等到环境就绪再提示连接，约 5–10 分钟）
+#    若开启远程桌面，会提示设置 RDP 密码
 make up
 
 # 4. 配置 Cursor Remote SSH
@@ -74,11 +77,14 @@ make cursor
 `terraform.tfvars` 关键项：
 
 ```hcl
-instance_type          = "t4g.micro"    # ARM 最便宜档
-allowed_ssh_cidr       = "1.2.3.4/32"  # 必改，你的公网 IP
-install_docker         = false         # 刷题默认不装
-auto_stop_idle_minutes = 120
-block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
+instance_type           = "t4g.small"   # 桌面推荐；纯刷题可 t4g.micro
+instance_type_fallbacks = ["t4g.micro", "t4g.medium"]  # Spot 无容量时自动重试
+allowed_ssh_cidr        = "1.2.3.4/32"  # 必改，你的公网 IP
+install_docker          = false         # 刷题默认不装
+install_desktop         = true          # XFCE + xrdp + Firefox
+desktop_rdp_public      = false         # false = xrdp 仅 127.0.0.1，走 SSH 隧道
+auto_stop_idle_minutes  = 120
+block_ssh_until_ready   = true          # 初始化完成前拒绝 SSH
 ```
 
 ## 日常命令
@@ -99,10 +105,13 @@ block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
 | `make test` | 运行单元测试（需 `brew install bats-core`） |
 | `keepalive`（SSH 内） | 重置自动停机计时 |
 
+`make vscode` 与 `make cursor` 相同（历史别名）。
+
 ## 开发机已预装
 
 - Git（已配置 `user.name` / `user.email` 占位，请改成你的）、Python3、Node.js (nvm Node 20)、tmux、zsh、ripgrep
 - **C++**：g++（build-essential）、clang、clangd、cmake、gdb、clang-format、ninja-build
+- **远程桌面**（`install_desktop = true`）：XFCE、xrdp、Firefox
 - Docker 默认**不装**（需要时在 tfvars 设 `install_docker = true`）
 
 代码目录：`~/projects`（持久化在 `/data/home/dev/...`）
@@ -111,11 +120,23 @@ block_ssh_until_ready  = true          # 初始化完成前拒绝 SSH
 
 **避免提前连：** 默认 `block_ssh_until_ready = true`，初始化完成前 SSH 会提示稍后再连；`make up` 也会等到就绪才结束。
 
+## 远程桌面（可选）
+
+默认 `install_desktop = true`，xrdp 监听 `127.0.0.1`，经 SSH 隧道连接（无需公网开放 3389）：
+
+1. `make cursor`（会写入 `LocalForward 3389 127.0.0.1:3389`）
+2. 终端保持隧道：`ssh -N aws-vibe-dev`
+3. Mac **Windows App** 连接 `127.0.0.1:3389`，用户 `dev`，密码为 `make up` 时设置的 RDP 密码
+
+也可在 tfvars 设 `desktop_rdp_public = true`，对 `allowed_ssh_cidr` 开放 3389 直连（仍限你的 IP）。
+
+关闭桌面：`install_desktop = false`，然后 `make up` 或 `make restart`。
+
 ## 安全配置（默认）
 
-- **仅 SSH 22 端口**
+- **公网仅 SSH 22**；RDP 默认只绑 `127.0.0.1`，经 SSH 隧道访问
 - **IP 白名单**：`allowed_ssh_cidr` 必须为你的公网 IP/32（禁止 `0.0.0.0/0`）
-- **密钥登录**，禁止密码
+- **SSH 密钥登录**；RDP 使用独立密码（与 SSH 密钥无关）
 - **仅 `dev` 用户**可 SSH，`ubuntu` 账户已禁用
 - **2 小时无活动自动停机**
 
@@ -154,4 +175,5 @@ make destroy
 - **Terraform 报错 allowed_ssh_cidr**：改成你的公网 IP/32，或 `make set-ip`
 - **SSH 连不上 / Permission denied (publickey)**：换网络后 `make set-ip && make up`；setup 失败则 `make fix` 或 `make restart`
 - **Cursor 连不上**：`make cursor` 更新 IP；确认本地密钥与 tfvars 里 `ssh_public_key_path` 一致
-- **Spot 容量不足**：改 `t4g.small` 或 `make restart` 换 AZ 重试
+- **Spot 容量不足**：自动 fallback 其他规格；或改 `instance_type_fallbacks` / `make restart`
+- **RDP 黑屏或连不上**：确认 `ssh -N aws-vibe-dev` 隧道在跑；检查 RDP 密码；见 `make fix`
