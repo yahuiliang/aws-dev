@@ -5,6 +5,9 @@ export DEBIAN_FRONTEND=noninteractive
 
 DEV_USER="${dev_username}"
 INSTALL_DOCKER="${install_docker}"
+INSTALL_DESKTOP="${install_desktop}"
+DESKTOP_RDP_PUBLIC="${desktop_rdp_public}"
+DEV_RDP_PASSWORD_B64='${dev_rdp_password_b64}'
 SSH_PUBLIC_KEY='${ssh_public_key}'
 AUTO_STOP_IDLE="${auto_stop_idle_minutes}"
 AUTO_STOP_CHECK="${auto_stop_check_interval_minutes}"
@@ -59,8 +62,8 @@ setup_login_hint() {
   cat >> "$rc" <<'EOF'
 
 # dev-box-init-hint
-if [[ ! -f /data/.initialized ]]; then
-  echo "[dev-box] 环境仍在安装（Node 等开发工具），约 5 分钟。进度: sudo journalctl -t dev-box-setup -f"
+if [[ ! -f /var/lib/dev-box/setup-complete ]]; then
+  echo "[dev-box] 环境仍在安装（Node/桌面等），约 5–15 分钟。进度: sudo journalctl -t dev-box-setup -f"
 fi
 EOF
   chown "$DEV_USER:$DEV_USER" "$rc"
@@ -107,10 +110,11 @@ setup_ssh_hardening() {
   cat > /usr/local/bin/dev-box-ssh-gate <<'GATE'
 #!/bin/bash
 # 初始化完成前拒绝 dev 登录（ForceCommand 调用）
-if [[ ! -f /data/.initialized ]]; then
+if [[ ! -f /var/lib/dev-box/setup-complete ]]; then
   echo ""
-  echo "  [dev-box] 开发环境仍在初始化（Node 等开发工具）"
-  echo "  请 3–8 分钟后再连；本地可运行: make wait-ready"
+  echo "  [dev-box] 开发环境仍在初始化（工具链/远程桌面等）"
+  echo "  请 5–15 分钟后再连；本地可运行: make wait-ready"
+  echo "  进度: sudo journalctl -t dev-box-setup -f"
   echo ""
   exit 1
 fi
@@ -157,6 +161,8 @@ setup_packages() {
     curl -fsSL https://get.docker.com | sh
     usermod -aG docker "$DEV_USER"
   fi
+
+  setup_desktop
 }
 
 setup_git() {
@@ -218,6 +224,170 @@ EOF
   '
 }
 
+ensure_desktop_browser() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+
+  if [[ -x /opt/firefox/firefox ]] && /opt/firefox/firefox --version &>/dev/null; then
+    log "Browser: $(/opt/firefox/firefox --version 2>/dev/null | head -1)"
+    return 0
+  fi
+
+  # apt 的 firefox 是 snap 包装；home 软链到 /data 时 snap 会报 8461: Not a directory
+  log "Installing Firefox (Mozilla arm64 tarball; 避开 snap + symlink home 问题)..."
+  apt-get install -y --no-install-recommends \
+    libdbus-glib-1-2 libgtk-3-0 libasound2 libxt6 xdg-utils
+
+  snap remove firefox 2>/dev/null || true
+  apt-get remove -y firefox 2>/dev/null || true
+
+  local tgz="/tmp/firefox.tar.xz"
+  curl -fsSL -o "$tgz" "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64-aarch64&lang=en-US"
+  rm -rf /opt/firefox
+  tar -xJf "$tgz" -C /opt/
+  rm -f "$tgz"
+
+  ln -sf /opt/firefox/firefox /usr/local/bin/firefox
+
+  cat > /usr/share/applications/firefox-devbox.desktop <<'FDEEOF'
+[Desktop Entry]
+Version=1.0
+Name=Firefox
+Comment=Web Browser
+Exec=/opt/firefox/firefox %u
+Icon=/opt/firefox/browser/chrome/icons/default/default128.png
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+FDEEOF
+  update-desktop-database 2>/dev/null || true
+
+  if [[ -x /opt/firefox/firefox ]]; then
+    log "Browser ready: firefox -> /opt/firefox/firefox"
+    return 0
+  fi
+
+  log "ERROR: failed to install Firefox"
+  return 1
+}
+
+ensure_xfce_icons() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+  local marker="/var/lib/dev-box/xfce-icons-ready"
+
+  if [[ -f "$marker" ]] && dpkg -s papirus-icon-theme &>/dev/null; then
+    return 0
+  fi
+
+  log "Installing XFCE icon themes and file manager libs..."
+  apt-get install -y --no-install-recommends \
+    papirus-icon-theme adwaita-icon-theme gnome-icon-theme hicolor-icon-theme \
+    shared-mime-info desktop-file-utils file \
+    gvfs gvfs-backends gvfs-fuse \
+    tumbler tumbler-plugins-extra ffmpegthumbnailer \
+    libglib2.0-bin exo-utils
+
+  update-mime-database /usr/share/mime 2>/dev/null || true
+  for theme in Papirus Adwaita hicolor; do
+    [[ -d "/usr/share/icons/$theme" ]] && gtk-update-icon-cache -f "/usr/share/icons/$theme" 2>/dev/null || true
+  done
+
+  mkdir -p "/data/home/$DEV_USER/.config/xfce4/xfconf/xfce-perchannel-xml"
+  cat > "/data/home/$DEV_USER/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" <<'XFEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="IconThemeName" type="string" value="Papirus"/>
+    <property name="ThemeName" type="string" value="Adwaita"/>
+  </property>
+</channel>
+XFEOF
+  chown -R "$DEV_USER:$DEV_USER" "/data/home/$DEV_USER/.config"
+
+  date -Is > "$marker"
+  log "XFCE icons: Papirus theme + gvfs/mime/thumbnails configured"
+}
+
+setup_desktop() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+
+  ensure_desktop_browser
+  ensure_xfce_icons
+
+  local marker="/var/lib/dev-box/desktop-ready"
+  local xsession="/data/home/$DEV_USER/.xsession"
+
+  if [[ -f "$marker" ]] && systemctl is-active --quiet xrdp 2>/dev/null \
+      && [[ -x "$xsession" ]] && dpkg -s xorgxrdp &>/dev/null \
+      && grep -q 'DefaultWindowManager=startwm.sh' /etc/xrdp/sesman.ini 2>/dev/null; then
+    log "Desktop (XFCE + xrdp) already installed"
+    return 0
+  fi
+
+  log "Installing XFCE + xrdp remote desktop..."
+
+  if ! swapon --show 2>/dev/null | grep -q .; then
+    if [[ ! -f /swapfile ]]; then
+      log "Adding 1GB swap for desktop session..."
+      fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+    fi
+  fi
+
+  apt-get install -y --no-install-recommends \
+    xfce4 xfce4-goodies xrdp xorgxrdp dbus-x11 thunar thunar-volman
+
+  adduser xrdp ssl-cert 2>/dev/null || true
+  adduser "$DEV_USER" ssl-cert 2>/dev/null || true
+
+  # Ubuntu 22.04 xrdp 黑屏修复：xorgxrdp + .xsession + startwm.sh 清环境变量
+  cat > "$xsession" <<'XSEOF'
+#!/bin/sh
+exec startxfce4
+XSEOF
+  chmod +x "$xsession"
+  chown "$DEV_USER:$DEV_USER" "$xsession"
+
+  if ! grep -q 'dev-box-startwm' /etc/xrdp/startwm.sh 2>/dev/null; then
+    sed -i '1a\
+# dev-box-startwm\
+unset DBUS_SESSION_BUS_ADDRESS\
+unset XDG_RUNTIME_DIR' /etc/xrdp/startwm.sh
+  fi
+
+  # 勿改 DefaultWindowManager=startxfce4（xrdp 会找 /etc/xrdp/startxfce4，不存在则黑屏）
+  if grep -q '^DefaultWindowManager=' /etc/xrdp/sesman.ini; then
+    sed -i 's|^DefaultWindowManager=.*|DefaultWindowManager=startwm.sh|' /etc/xrdp/sesman.ini
+  fi
+
+  if [[ -n "$DEV_RDP_PASSWORD_B64" ]]; then
+    echo "$DEV_USER:$(echo "$DEV_RDP_PASSWORD_B64" | base64 -d)" | chpasswd
+    log "RDP password configured from dev_rdp_password"
+  else
+    log "RDP: dev_rdp_password not set — run: sudo passwd $DEV_USER"
+  fi
+
+  if [[ "$DESKTOP_RDP_PUBLIC" == "true" ]]; then
+    sed -i '/^address=/d' /etc/xrdp/xrdp.ini
+    log "RDP listening on all interfaces :3389 (desktop_rdp_public=true)"
+  else
+    if grep -q '^address=' /etc/xrdp/xrdp.ini; then
+      sed -i 's/^address=.*/address=127.0.0.1/' /etc/xrdp/xrdp.ini
+    else
+      sed -i '/^\[Globals\]/a address=127.0.0.1' /etc/xrdp/xrdp.ini
+    fi
+    log "RDP bound to 127.0.0.1:3389 — connect via SSH tunnel + Windows App"
+  fi
+
+  systemctl enable xrdp
+  systemctl restart xrdp
+
+  mkdir -p /var/lib/dev-box
+  date -Is > "$marker"
+  log "Desktop ready: Windows App -> 127.0.0.1:3389 (session=Xorg), user $DEV_USER, browser=firefox"
+}
+
 setup_autostop() {
   [[ "$${AUTO_STOP_IDLE:-0}" -le 0 ]] && return 0
   apt-get install -y awscli
@@ -257,6 +427,19 @@ EOF
   chmod +x /usr/local/bin/keepalive
 }
 
+mark_setup_complete() {
+  mkdir -p /var/lib/dev-box
+  local iid
+  iid=$(curl -sf http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo unknown)
+  cat > /var/lib/dev-box/setup-complete <<EOF
+instance_id=$iid
+completed_at=$(date -Is)
+install_desktop=$${INSTALL_DESKTOP}
+EOF
+  date -Is > /data/.initialized
+  log "Setup complete (instance $iid)"
+}
+
 # ---- main ----
 log "Starting dev-box setup"
 setup_dev_user
@@ -266,8 +449,7 @@ if dev=$(wait_for_data_device); then
   mount_data_volume "$dev"
   setup_packages
   setup_autostop
-  date -Is > /data/.initialized
-  log "Setup complete"
+  mark_setup_complete
 else
   log "WARN: data volume not found yet; SSH ready, run: sudo /usr/local/bin/dev-box-setup.sh"
 fi

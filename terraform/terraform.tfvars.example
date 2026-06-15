@@ -3,7 +3,7 @@
 
 aws_region         = "us-west-2"   # 湾区推荐（俄勒冈，低延迟 + Spot 稳定）；极致延迟试 us-west-1
 project_name       = "vibe-dev"
-instance_type      = "t4g.micro"     # Graviton ARM 最便宜；卡顿可改 t4g.small
+instance_type      = "t4g.small"  # 2GB 内存（远程桌面+Firefox）；纯刷题可改 t4g.micro
 spot_max_price     = ""             # 留空 = 最高按需价，一般能拿到 Spot
 
 root_volume_size   = 8
@@ -13,6 +13,9 @@ ssh_public_key_path = "~/.ssh/id_ed25519.pub"
 allowed_ssh_cidr    = "YOUR_PUBLIC_IP/32"   # 必改！查公网 IP: curl -4 ifconfig.me
 
 install_docker       = false  # 刷题不需要 Docker
+install_desktop      = true   # XFCE + xrdp + Firefox；Mac Windows App + make cursor（SSH 隧道）
+desktop_rdp_public   = false  # true = 开放 3389 直连（仍限 allowed_ssh_cidr）
+# dev_rdp_password 由 make up 交互设置，也可在此手动填写
 dev_username         = "dev"
 
 # 空闲自动停机（默认 2 小时无活动 stop，0 = 关闭）

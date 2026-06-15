@@ -23,6 +23,8 @@ if [[ -z "$IP" || "$IP" == "null" ]]; then
   exit 1
 fi
 
+ensure_dev_rdp_password
+
 echo "→ 同步本地 dev-box-setup 脚本..."
 # shellcheck source=lib/render_setup.sh
 source "$ROOT/scripts/lib/render_setup.sh"

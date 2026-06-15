@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# 等待实例 SSH 可用且 dev-box setup 完成
+# 等待实例 SSH 可用且 dev-box setup 全部完成（含桌面/xrdp 等可选组件）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF_DIR="$ROOT/terraform"
-TIMEOUT="${WAIT_READY_TIMEOUT:-600}"
+TIMEOUT="${WAIT_READY_TIMEOUT:-1200}"
 POLL="${WAIT_READY_POLL:-15}"
 
 # shellcheck source=lib/tfvars.sh
 source "$ROOT/scripts/lib/tfvars.sh"
+# shellcheck source=lib/ready_check.sh
+source "$ROOT/scripts/lib/ready_check.sh"
 TFVARS_FILE="$TF_DIR/terraform.tfvars"
 
 cd "$TF_DIR"
@@ -19,6 +21,8 @@ PUB_PATH="${PUB_PATH/#\~/$HOME}"
 KEY="${PUB_PATH%.pub}"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 [[ -f "$KEY" ]] && SSH_OPTS+=(-i "$KEY")
+
+READY_SCRIPT=$(remote_setup_ready_script)
 
 if [[ -z "$IP" || "$IP" == "null" ]]; then
   echo "未找到实例 IP"
@@ -36,10 +40,10 @@ for _ in $(seq 1 40); do
 done
 ssh_try true || { echo "SSH 连接超时"; exit 1; }
 
-echo "→ 等待环境初始化（最多 ${TIMEOUT}s）..."
+echo "→ 等待 setup 全部完成（最多 ${TIMEOUT}s，含桌面/xrdp 等）..."
 start=$(date +%s)
 while true; do
-  if ssh_try 'test -f /data/.initialized'; then
+  if ssh_try bash -s <<< "$READY_SCRIPT"; then
     elapsed=$(( $(date +%s) - start ))
     echo "✓ 环境就绪（${elapsed}s）"
     exit 0

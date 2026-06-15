@@ -56,6 +56,25 @@ variable "install_docker" {
   default     = false
 }
 
+variable "install_desktop" {
+  description = "是否安装 XFCE + xrdp 远程桌面（Mac 用 Windows App + SSH 隧道）"
+  type        = bool
+  default     = true
+}
+
+variable "desktop_rdp_public" {
+  description = "是否对 allowed_ssh_cidr 开放 3389 直连 RDP；false 时 xrdp 仅监听 127.0.0.1，走 SSH 隧道"
+  type        = bool
+  default     = false
+}
+
+variable "dev_rdp_password" {
+  description = "RDP 登录密码（xrdp 需要，与 SSH 密钥独立）；留空则首次 SSH 后运行 sudo passwd dev"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "dev_username" {
   description = "开发用户名"
   type        = string

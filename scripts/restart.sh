@@ -7,6 +7,11 @@ TF_DIR="$ROOT/terraform"
 
 cd "$TF_DIR"
 
+# shellcheck source=lib/tfvars.sh
+source "$ROOT/scripts/lib/tfvars.sh"
+TFVARS_FILE="$TF_DIR/terraform.tfvars"
+ensure_dev_rdp_password
+
 terraform taint -allow-missing aws_spot_instance_request.dev 2>/dev/null || true
 terraform apply -auto-approve
 

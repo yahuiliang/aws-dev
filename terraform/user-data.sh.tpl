@@ -25,14 +25,14 @@ ExecStart=/usr/local/bin/dev-box-setup.sh
 WantedBy=multi-user.target
 EOF
 
-# 数据盘晚挂载时：每 2 分钟重试，直到 /data/.initialized 出现
+# 数据盘晚挂载时：每 2 分钟重试，直到 setup-complete 出现
 cat > /etc/systemd/system/dev-box-setup-retry.service <<'EOF'
 [Unit]
 Description=Retry dev-box setup until complete
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'test -f /data/.initialized || /usr/local/bin/dev-box-setup.sh'
+ExecStart=/bin/bash -c 'test -f /var/lib/dev-box/setup-complete || /usr/local/bin/dev-box-setup.sh'
 EOF
 
 cat > /etc/systemd/system/dev-box-setup-retry.timer <<'EOF'
@@ -58,7 +58,7 @@ log "Running dev-box-setup (first boot)..."
 # 数据盘挂载可能晚于 user-data，多等几次
 for delay in 30 60 120; do
   sleep "$delay"
-  if [[ -f /data/.initialized ]]; then
+  if [[ -f /var/lib/dev-box/setup-complete ]]; then
     log "Setup complete (marker found)"
     break
   fi

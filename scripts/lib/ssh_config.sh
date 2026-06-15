@@ -2,7 +2,7 @@
 # 生成 Cursor / VS Code Remote SSH 配置块（可单测）
 
 write_vscode_ssh_block() {
-  local ssh_config="$1" ip="$2" user="$3" identity_file="$4"
+  local ssh_config="$1" ip="$2" user="$3" identity_file="$4" rdp_forward="${5:-false}"
   local host="aws-vibe-dev"
   local marker="# aws-vibe-dev managed block"
   local end_marker="# end aws-vibe-dev"
@@ -26,6 +26,13 @@ Host $host
   User $user
   IdentityFile $identity_file
   StrictHostKeyChecking accept-new
+EOF
+  if [[ "$rdp_forward" == "true" ]]; then
+    cat >> "$ssh_config" <<EOF
+  LocalForward 3389 127.0.0.1:3389
+EOF
+  fi
+  cat >> "$ssh_config" <<EOF
 $end_marker
 EOF
 }

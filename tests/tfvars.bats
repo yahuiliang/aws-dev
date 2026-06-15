@@ -38,3 +38,21 @@ teardown() {
   grep -q 'allowed_ssh_cidr    = "96.74.107.150/32"' "$TFVARS"
   ! grep -q '1.2.3.4/32' "$TFVARS"
 }
+
+@test "update_dev_rdp_password 写入并转义特殊字符" {
+  update_dev_rdp_password "$TFVARS" 'p"a\ss'
+  line=$(grep dev_rdp_password "$TFVARS")
+  [ "$line" = 'dev_rdp_password    = "p\"a\\ss"' ]
+}
+
+@test "update_dev_rdp_password 简单密码可读回" {
+  update_dev_rdp_password "$TFVARS" 'my-rdp-secret'
+  [ "$(tfvar dev_rdp_password "")" = 'my-rdp-secret' ]
+}
+
+@test "update_dev_rdp_password 重复写入会替换旧值" {
+  update_dev_rdp_password "$TFVARS" 'first-secret'
+  update_dev_rdp_password "$TFVARS" 'second-secret'
+  [ "$(grep -c 'dev_rdp_password' "$TFVARS")" -eq 1 ]
+  [ "$(tfvar dev_rdp_password "")" = 'second-secret' ]
+}

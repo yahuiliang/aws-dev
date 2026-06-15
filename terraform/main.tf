@@ -59,6 +59,17 @@ resource "aws_security_group" "dev" {
     cidr_blocks = [var.allowed_ssh_cidr]
   }
 
+  dynamic "ingress" {
+    for_each = var.install_desktop && var.desktop_rdp_public ? [1] : []
+    content {
+      description = "RDP"
+      from_port   = 3389
+      to_port     = 3389
+      protocol    = "tcp"
+      cidr_blocks = [var.allowed_ssh_cidr]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -141,10 +152,14 @@ resource "aws_spot_instance_request" "dev" {
     encrypted   = true
   }
 
-  user_data_base64 = base64encode(templatefile("${path.module}/user-data.sh.tpl", {
+  # EC2 user-data 上限 16KB（gzip 压缩后）；setup 脚本较大，必须 gzip
+  user_data_base64 = base64gzip(templatefile("${path.module}/user-data.sh.tpl", {
     setup_script = templatefile("${path.module}/files/dev-box-setup.sh.tpl", {
       dev_username                     = var.dev_username
       install_docker                   = var.install_docker
+      install_desktop                  = var.install_desktop
+      desktop_rdp_public               = var.desktop_rdp_public
+      dev_rdp_password_b64             = var.dev_rdp_password != "" ? base64encode(var.dev_rdp_password) : ""
       ssh_public_key                   = local.ssh_public_key
       auto_stop_idle_minutes           = var.auto_stop_idle_minutes
       auto_stop_check_interval_minutes = var.auto_stop_check_interval_minutes

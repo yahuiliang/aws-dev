@@ -33,3 +33,13 @@ teardown() {
   write_vscode_ssh_block "$SSH_CONFIG" "203.0.113.10" "dev" "/Users/me/.ssh/id_rsa"
   grep -q '# my other host' "$SSH_CONFIG"
 }
+
+@test "write_vscode_ssh_block install_desktop 时写入 LocalForward" {
+  write_vscode_ssh_block "$SSH_CONFIG" "203.0.113.10" "dev" "/Users/me/.ssh/id_rsa" true
+  grep -q 'LocalForward 3389 127.0.0.1:3389' "$SSH_CONFIG"
+}
+
+@test "write_vscode_ssh_block 未开 desktop 时不写 LocalForward" {
+  write_vscode_ssh_block "$SSH_CONFIG" "203.0.113.10" "dev" "/Users/me/.ssh/id_rsa" false
+  ! grep -q 'LocalForward' "$SSH_CONFIG"
+}

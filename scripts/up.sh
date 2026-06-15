@@ -15,6 +15,11 @@ fi
 echo "→ 同步 SSH 白名单 IP..."
 "$ROOT/scripts/set-my-ip.sh"
 
+# shellcheck source=lib/tfvars.sh
+source "$ROOT/scripts/lib/tfvars.sh"
+TFVARS_FILE="$TF_DIR/terraform.tfvars"
+ensure_dev_rdp_password
+
 if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
   if [[ -f ~/.ssh/id_rsa.pub ]]; then
     echo "未找到 id_ed25519.pub，改用 ~/.ssh/id_rsa.pub"
