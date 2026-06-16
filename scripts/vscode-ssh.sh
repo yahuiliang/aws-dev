@@ -33,5 +33,5 @@ echo "已写入 ~/.ssh/config -> Host aws-vibe-dev ($IP)"
 echo "  User=$USER  IdentityFile=$IDENTITY_FILE"
 echo "Cursor: Remote-SSH 连接 aws-vibe-dev"
 if [[ "$INSTALL_DESKTOP" == "true" ]]; then
-  echo "远程桌面: ssh -N aws-vibe-dev 后 Windows App 连 127.0.0.1:3389 (user=$USER)"
+  echo "远程桌面: make tunnel 后 Windows App 连 127.0.0.1:3389 (user=$USER)"
 fi
