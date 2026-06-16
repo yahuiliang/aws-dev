@@ -1,7 +1,7 @@
 # vibe-dev 远程开发机 — 常用命令
 # 用法: make <命令>
 
-.PHONY: check init set-ip ip up down destroy restart stop start ssh info cursor vscode fix test wait-ready
+.PHONY: check init set-ip ip up down destroy restart stop start ssh info cursor vscode fix test wait-ready cloudshell-terraform
 
 # 检查本地环境：aws/terraform/jq 是否安装，AWS 是否已登录
 check:
@@ -63,3 +63,7 @@ test:
 # 等待实例 setup 完成（make up 已自动调用）
 wait-ready:
 	@./scripts/wait-ready.sh
+
+# 在 AWS CloudShell 中安装 Terraform（~/bin 持久化）
+cloudshell-terraform:
+	@./scripts/cloudshell-install-terraform.sh
