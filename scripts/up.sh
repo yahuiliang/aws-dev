@@ -42,5 +42,9 @@ echo "→ 等待环境就绪..."
 
 echo ""
 echo "========== 部署完成 =========="
-terraform output -json | jq -r '"SSH: \(.ssh_command.value)"'
+terraform output -json | jq -r '
+  "SSH:     \(.ssh_command.value)",
+  "规格:    \(.instance_type.value)",
+  "费用估算: \(.estimated_monthly_cost_usd.value)"
+'
 echo "Cursor:  运行 make cursor 配置 Remote SSH"

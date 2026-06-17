@@ -3,10 +3,11 @@
 # 用法: TFVARS_FILE=... source scripts/lib/ready_check.sh
 
 remote_setup_ready_script() {
-  local install_desktop install_docker install_cursor
+  local install_desktop install_docker install_cursor dev_user
   install_desktop=$(tfvar install_desktop true)
   install_docker=$(tfvar install_docker false)
   install_cursor=$(tfvar install_cursor true)
+  dev_user=$(tfvar dev_username dev)
 
   cat <<'EOF'
 set -e
@@ -22,6 +23,9 @@ EOF
     cat <<'EOF'
 systemctl is-active --quiet xrdp || exit 1
 test -x /opt/firefox/firefox || exit 1
+dpkg -s fcitx5-module-xorg >/dev/null 2>&1 || exit 1
+command -v fcitx5 >/dev/null || exit 1
+grep -q dev-box-fcitx5 /data/home/${dev_user}/.xsession 2>/dev/null || exit 1
 EOF
   fi
 

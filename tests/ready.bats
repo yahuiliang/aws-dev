@@ -29,6 +29,8 @@ EOF
   script=$(remote_setup_ready_script)
   [[ "$script" == *"xrdp"* ]]
   [[ "$script" == *"/opt/firefox/firefox"* ]]
+  [[ "$script" == *"fcitx5-module-xorg"* ]]
+  [[ "$script" == *"dev-box-fcitx5"* ]]
 }
 
 @test "remote_setup_ready_script install_cursor 时检查 cursor" {

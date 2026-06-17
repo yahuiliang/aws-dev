@@ -439,12 +439,134 @@ ensure_pdf_viewer() {
   log "PDF viewer ready: evince (default for application/pdf)"
 }
 
+configure_chinese_input_session() {
+  local home="/data/home/$DEV_USER"
+
+  mkdir -p "$home/.config/fcitx5/conf" "$home/.config/autostart"
+  if [[ ! -f "$home/.config/fcitx5/profile" ]]; then
+    cat > "$home/.config/fcitx5/profile" <<'FPEOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=pinyin
+Layout=
+FPEOF
+  fi
+
+  cat > "$home/.config/autostart/fcitx5.desktop" <<'FCEOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+Comment=Chinese input method
+X-GNOME-Autostart-Phase=Applications
+FCEOF
+
+  cat > "$home/.xsessionrc" <<'XSREOF'
+# dev-box-fcitx5 — sourced by startxfce4 (xrdp/XFCE)
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export LANG=en_US.UTF-8
+export LC_CTYPE=zh_CN.UTF-8
+XSREOF
+
+  cat > "$home/.xsession" <<'XSEOF'
+#!/bin/sh
+# dev-box-fcitx5 — xrdp session must set IME before startxfce4
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export LANG=en_US.UTF-8
+export LC_CTYPE=zh_CN.UTF-8
+eval "$(dbus-launch --sh-syntax --exit-with-session)" 2>/dev/null || true
+fcitx5 -d 2>/dev/null || true
+exec startxfce4
+XSEOF
+  chmod +x "$home/.xsession"
+
+  local xprofile="$home/.xprofile"
+  touch "$xprofile"
+  if ! grep -q dev-box-fcitx5 "$xprofile" 2>/dev/null; then
+    cat >> "$xprofile" <<'XPEOF'
+
+# dev-box-fcitx5 — Chinese fonts + pinyin in XFCE / xrdp
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export LANG=en_US.UTF-8
+export LC_CTYPE=zh_CN.UTF-8
+eval "$(dbus-launch --sh-syntax --exit-with-session)" 2>/dev/null || true
+fcitx5 -d 2>/dev/null || true
+XPEOF
+  fi
+
+  local xsettings="$home/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
+  if [[ -f "$xsettings" ]] && ! grep -q 'Noto Sans CJK SC' "$xsettings" 2>/dev/null; then
+    sed -i '/<property name="Net"/i\
+  <property name="Gtk" type="empty">\
+    <property name="FontName" type="string" value="Noto Sans CJK SC 10"/>\
+  </property>' "$xsettings"
+  fi
+
+  sudo -u "$DEV_USER" im-config -n fcitx5 2>/dev/null || true
+
+  local rc="$home/.bashrc"
+  touch "$rc"
+  if ! grep -q dev-box-locale "$rc" 2>/dev/null; then
+    cat >> "$rc" <<'BREOF'
+
+# dev-box-locale — UTF-8 + Chinese ctype for SSH terminal / Cursor
+export LANG=en_US.UTF-8
+export LC_CTYPE=zh_CN.UTF-8
+BREOF
+  fi
+
+  chown -R "$DEV_USER:$DEV_USER" "$home/.xsession" "$home/.xsessionrc" "$home/.xprofile" "$home/.config" "$rc"
+}
+
+setup_chinese_locale_and_input() {
+  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
+
+  if ! dpkg -s fcitx5-module-xorg &>/dev/null || ! command -v fcitx5 &>/dev/null \
+      || ! locale -a 2>/dev/null | grep -qi 'zh_CN.utf8' \
+      || ! fc-match 'Noto Sans CJK SC' &>/dev/null; then
+    log "Installing Chinese locale, fonts, and fcitx5 pinyin input..."
+
+    apt-get install -y --no-install-recommends \
+      locales language-pack-zh-hans \
+      fonts-noto-cjk fonts-noto-cjk-extra \
+      fcitx5 fcitx5-chinese-addons fcitx5-config-qt \
+      fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 \
+      fcitx5-module-xorg im-config dbus-x11
+
+    if ! locale -a 2>/dev/null | grep -qi 'zh_CN.utf8'; then
+      grep -q 'zh_CN.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null \
+        || echo 'zh_CN.UTF-8 UTF-8' >> /etc/locale.gen
+      locale-gen zh_CN.UTF-8
+    fi
+  fi
+
+  configure_chinese_input_session
+
+  mkdir -p /var/lib/dev-box
+  date -Is > /var/lib/dev-box/chinese-ime-ready
+  log "Chinese ready: Noto CJK fonts, zh_CN.UTF-8, fcitx5 pinyin (Ctrl+Space to switch IME)"
+}
+
 setup_desktop() {
   [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
 
   ensure_desktop_browser
   ensure_xfce_icons
   ensure_pdf_viewer
+  setup_chinese_locale_and_input
 
   local marker="/var/lib/dev-box/desktop-ready"
   local xsession="/data/home/$DEV_USER/.xsession"
@@ -475,12 +597,7 @@ setup_desktop() {
   adduser "$DEV_USER" ssl-cert 2>/dev/null || true
 
   # Ubuntu 22.04 xrdp 黑屏修复：xorgxrdp + .xsession + startwm.sh 清环境变量
-  cat > "$xsession" <<'XSEOF'
-#!/bin/sh
-exec startxfce4
-XSEOF
-  chmod +x "$xsession"
-  chown "$DEV_USER:$DEV_USER" "$xsession"
+  configure_chinese_input_session
 
   if ! grep -q 'dev-box-startwm' /etc/xrdp/startwm.sh 2>/dev/null; then
     sed -i '1a\
