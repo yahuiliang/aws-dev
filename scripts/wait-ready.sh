@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 等待实例 SSH 可用且 dev-box setup 全部完成（含桌面/xrdp 等可选组件）
+# 等待实例 SSH 可用且 dev-box setup 完成
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,41 +16,43 @@ source "$ROOT/scripts/lib/ssh_connect.sh"
 TFVARS_FILE="$TF_DIR/terraform.tfvars"
 
 cd "$TF_DIR"
-IP=$(terraform output -raw public_ip 2>/dev/null || true)
+PUBLIC_IP=$(terraform output -raw public_ip 2>/dev/null | tr -d '[:space:]' || true)
 USER=$(tfvar dev_username dev)
 build_ssh_opts -o BatchMode=yes -o ConnectTimeout=10
 
 READY_SCRIPT=$(remote_setup_ready_script)
+BLOCK_SSH=$(tfvar block_ssh_until_ready true)
 
-if [[ -z "$IP" || "$IP" == "null" ]]; then
+if [[ -z "$PUBLIC_IP" || "$PUBLIC_IP" == "null" ]]; then
   echo "未找到实例 IP"
   exit 1
 fi
 
 ssh_try() {
-  ssh "${SSH_OPTS[@]}" "$USER@$IP" "$@" 2>/dev/null
+  ssh "${SSH_OPTS[@]}" "$USER@$PUBLIC_IP" "$@" 2>/dev/null
 }
 
-echo "→ 等待 SSH 可用 ($USER@$IP)..."
-for _ in $(seq 1 40); do
-  ssh_try true && break
-  sleep 5
-done
-ssh_try true || { echo "SSH 连接超时"; exit 1; }
+is_ready() {
+  if [[ "$BLOCK_SSH" == "true" ]]; then
+    # ForceCommand gate：setup-complete 前 SSH 会失败
+    ssh_try true
+  else
+    ssh_try bash -s <<< "$READY_SCRIPT"
+  fi
+}
 
-echo "→ 等待 setup 全部完成（最多 ${TIMEOUT}s，含桌面/xrdp 等）..."
+printf '→ 等待环境就绪 (%s@%s，最多 %ss)...\n' "$USER" "$PUBLIC_IP" "$TIMEOUT"
 start=$(date +%s)
 while true; do
-  if ssh_try bash -s <<< "$READY_SCRIPT"; then
+  if is_ready; then
     elapsed=$(( $(date +%s) - start ))
     echo "✓ 环境就绪（${elapsed}s）"
     exit 0
   fi
   elapsed=$(( $(date +%s) - start ))
   if (( elapsed >= TIMEOUT )); then
-    echo "超时。查看进度: ssh $USER@$IP 'sudo journalctl -t dev-box-setup -f'"
+    printf '超时。查看进度: ssh %s@%s '\''sudo journalctl -t dev-box-setup -f'\''\n' "$USER" "$PUBLIC_IP"
     exit 1
   fi
-  echo "  仍在安装... ${elapsed}s"
   sleep "$POLL"
 done

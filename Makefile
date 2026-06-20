@@ -1,7 +1,7 @@
 # vibe-dev 远程开发机 — 常用命令
 # 用法: make <命令>
 
-.PHONY: check init set-ip ip up down destroy restart stop start ssh tunnel info cursor vscode fix test wait-ready cloudshell-terraform
+.PHONY: check init set-ip ip up down destroy restart stop start ssh tunnel info cursor vscode fix free-disk test wait-ready cloudshell-terraform
 
 # 检查本地环境：aws/terraform/jq 是否安装，AWS 是否已登录
 check:
@@ -59,6 +59,10 @@ cursor vscode:
 # user-data 失败时修复 dev 用户 SSH、数据盘与开发环境
 fix:
 	@./scripts/fix-instance.sh
+
+# 远程根盘腾空间（apt/journal/Docker 缓存，不动 /data）
+free-disk:
+	@./scripts/free-disk.sh
 
 # 单元测试（brew install bats-core）
 test:

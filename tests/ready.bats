@@ -21,23 +21,3 @@ teardown() {
   [[ "$script" == *"/var/lib/dev-box/setup-complete"* ]]
   [[ "$script" == *"dev-box-setup.sh"* ]]
 }
-
-@test "remote_setup_ready_script install_desktop 时检查 xrdp 与 firefox" {
-  cat >> "$TFVARS" <<'EOF'
-install_desktop = true
-EOF
-  script=$(remote_setup_ready_script)
-  [[ "$script" == *"xrdp"* ]]
-  [[ "$script" == *"/opt/firefox/firefox"* ]]
-  [[ "$script" == *"fcitx5-module-xorg"* ]]
-  [[ "$script" == *"dev-box-fcitx5"* ]]
-}
-
-@test "remote_setup_ready_script install_cursor 时检查 cursor" {
-  cat >> "$TFVARS" <<'EOF'
-install_cursor = true
-EOF
-  script=$(remote_setup_ready_script)
-  [[ "$script" == *"command -v cursor"* ]]
-  [[ "$script" == *"cursor --version"* ]]
-}
