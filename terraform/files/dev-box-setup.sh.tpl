@@ -562,13 +562,35 @@ export SSH_AUTH_SOCK
 XKEOF
   fi
 
+  # Noto CJK is installed for Chinese glyphs; do not force it as the GTK UI font (too thin in xrdp).
   local xsettings="$home/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
-  if [[ -f "$xsettings" ]] && ! grep -q 'Noto Sans CJK SC' "$xsettings" 2>/dev/null; then
-    sed -i '/<property name="Net"/i\
-  <property name="Gtk" type="empty">\
-    <property name="FontName" type="string" value="Noto Sans CJK SC 10"/>\
-  </property>' "$xsettings"
+  if [[ -f "$xsettings" ]] && grep -q 'Noto Sans CJK SC' "$xsettings" 2>/dev/null; then
+    sed -i '/<property name="Gtk" type="empty">/,/<\/property>/d' "$xsettings"
+    log "Removed Noto Sans CJK SC system UI font override"
   fi
+
+  # LC_CTYPE=zh_CN.UTF-8 makes fontconfig prefer Noto Mono; keep DejaVu for terminal/Cursor.
+  local fontconf="$home/.config/fontconfig/conf.d/70-dev-box-fonts.conf"
+  mkdir -p "$(dirname "$fontconf")"
+  cat > "$fontconf" <<'FCEOF'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <!-- dev-box-fonts: DejaVu for Latin UI/mono; Noto CJK remains fallback for Chinese -->
+  <alias binding="strong">
+    <family>sans-serif</family>
+    <prefer>
+      <family>DejaVu Sans</family>
+    </prefer>
+  </alias>
+  <alias binding="strong">
+    <family>monospace</family>
+    <prefer>
+      <family>DejaVu Sans Mono</family>
+    </prefer>
+  </alias>
+</fontconfig>
+FCEOF
 
   sudo -u "$DEV_USER" im-config -n fcitx5 2>/dev/null || true
 
