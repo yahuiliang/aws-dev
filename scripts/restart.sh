@@ -18,8 +18,7 @@ terraform taint -allow-missing aws_spot_instance_request.dev 2>/dev/null || true
 source "$ROOT/scripts/lib/spot_apply.sh"
 spot_apply_with_fallback "$TF_DIR"
 
-echo "→ 等待环境就绪..."
-"$ROOT/scripts/wait-ready.sh"
-
-echo "实例已重建。"
+echo "实例已重建，setup 在后台运行；完成前 SSH 被门禁拦截。"
+echo "需要确认就绪时: make wait-ready"
+echo ""
 "$ROOT/scripts/info.sh"
