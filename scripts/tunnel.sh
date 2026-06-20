@@ -8,4 +8,4 @@ if ! grep -q 'Host aws-vibe-dev' "$SSH_CONFIG" 2>/dev/null; then
 fi
 
 echo "SSH 隧道已启动（Ctrl+C 退出）。RDP: 127.0.0.1:3389"
-exec ssh -N aws-vibe-dev
+exec ssh -N -o ExitOnForwardFailure=yes -L 3389:127.0.0.1:3389 aws-vibe-dev
