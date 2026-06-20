@@ -341,30 +341,61 @@ Signed-By: $keyring
 EOF
 }
 
-ensure_cursor() {
+ensure_os_secret_storage_packages() {
+  [[ "$INSTALL_CURSOR" == "true" || "$INSTALL_DESKTOP" == "true" ]] || return 0
+  dpkg -s gnome-keyring &>/dev/null && dpkg -s libsecret-1-0 &>/dev/null && return 0
+
+  log "Installing gnome-keyring for desktop secret storage..."
+  apt-get install -y --no-install-recommends gnome-keyring libsecret-1-0
+}
+
+configure_cursor_secret_storage() {
   [[ "$INSTALL_CURSOR" == "true" ]] || return 0
 
-  reconcile_cursor_apt_repo
-
-  if command -v cursor &>/dev/null && cursor --version &>/dev/null; then
-    log "Cursor: $(cursor --version 2>/dev/null | head -1) ($(cursor --version 2>/dev/null | tail -1))"
-    return 0
-  fi
-
-  log "Installing Cursor (official apt, arm64)..."
-  apt-get update -y
-  apt-get install -y --no-install-recommends cursor
+  local home="/data/home/$DEV_USER"
+  local argv="$home/.config/Cursor/argv.json"
+  mkdir -p "$(dirname "$argv")"
+  python3 - "$argv" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+data = {}
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+data["password-store"] = "basic"
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+  chown -R "$DEV_USER:$DEV_USER" "$home/.config/Cursor"
 
   local de
   for de in /usr/share/applications/cursor*.desktop; do
     [[ -f "$de" ]] || continue
-    grep -q 'no-sandbox' "$de" && continue
-    sed -i 's|\(Exec=.*cursor[^ ]*\)|\1 --no-sandbox|' "$de"
+    grep -q 'no-sandbox' "$de" || sed -i 's|\(Exec=.*cursor[^ ]*\)|\1 --no-sandbox|' "$de"
+    grep -q 'password-store=basic' "$de" || sed -i 's|\(Exec=.*cursor[^ ]*\)|\1 --password-store=basic|' "$de"
   done
   update-desktop-database 2>/dev/null || true
+}
+
+ensure_cursor() {
+  [[ "$INSTALL_CURSOR" == "true" ]] || return 0
+
+  reconcile_cursor_apt_repo
+  ensure_os_secret_storage_packages
+
+  if command -v cursor &>/dev/null && cursor --version &>/dev/null; then
+    log "Cursor: $(cursor --version 2>/dev/null | head -1) ($(cursor --version 2>/dev/null | tail -1))"
+  else
+    log "Installing Cursor (official apt, arm64)..."
+    apt-get update -y
+    apt-get install -y --no-install-recommends cursor
+  fi
+
+  configure_cursor_secret_storage
 
   if command -v cursor &>/dev/null; then
-    log "Cursor ready: $(cursor --version 2>/dev/null | head -1)"
+    log "Cursor ready: $(cursor --version 2>/dev/null | head -1) (password-store=basic)"
     return 0
   fi
 
@@ -468,6 +499,17 @@ Comment=Chinese input method
 X-GNOME-Autostart-Phase=Applications
 FCEOF
 
+  cat > "$home/.config/autostart/gnome-keyring.desktop" <<'GKEOF'
+[Desktop Entry]
+Type=Application
+Name=GNOME Keyring
+Exec=/usr/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh
+Comment=Secret storage for Cursor and other apps
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+GKEOF
+
   cat > "$home/.xsessionrc" <<'XSREOF'
 # dev-box-fcitx5 — sourced by startxfce4 (xrdp/XFCE)
 export GTK_IM_MODULE=fcitx
@@ -486,6 +528,8 @@ export XMODIFIERS=@im=fcitx
 export LANG=en_US.UTF-8
 export LC_CTYPE=zh_CN.UTF-8
 eval "$(dbus-launch --sh-syntax --exit-with-session)" 2>/dev/null || true
+eval "$(/usr/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh 2>/dev/null)" || true
+export SSH_AUTH_SOCK
 fcitx5 -d 2>/dev/null || true
 exec startxfce4
 XSEOF
@@ -503,8 +547,19 @@ export XMODIFIERS=@im=fcitx
 export LANG=en_US.UTF-8
 export LC_CTYPE=zh_CN.UTF-8
 eval "$(dbus-launch --sh-syntax --exit-with-session)" 2>/dev/null || true
+eval "$(/usr/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh 2>/dev/null)" || true
+export SSH_AUTH_SOCK
 fcitx5 -d 2>/dev/null || true
 XPEOF
+  fi
+
+  if ! grep -q dev-box-keyring "$xprofile" 2>/dev/null; then
+    cat >> "$xprofile" <<'XKEOF'
+
+# dev-box-keyring — libsecret backend for Cursor / GitHub auth in xrdp
+eval "$(/usr/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh 2>/dev/null)" || true
+export SSH_AUTH_SOCK
+XKEOF
   fi
 
   local xsettings="$home/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
