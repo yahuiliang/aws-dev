@@ -615,113 +615,6 @@ setup_chinese_locale_and_input() {
   log "Chinese ready: Noto CJK fonts, zh_CN.UTF-8, fcitx5 pinyin (Ctrl+Space to switch IME)"
 }
 
-configure_xrdp_ini() {
-  local ini=/etc/xrdp/xrdp.ini
-  [[ -f "$ini" ]] || return 0
-
-  # xrdp 0.9.17 needs ip= under [Xorg] to reach sesman; 0.10.x leftovers break login.
-  if grep -q '^\[Xorg\]' "$ini" && ! awk '/^\[Xorg\]/{f=1; next} /^\[/{f=0} f && /^ip=127\.0\.0\.1$/{found=1; exit} END{exit !found}' "$ini"; then
-    awk '
-      /^\[Xorg\]/ { in_xorg=1; xorg_ip=0; print; next }
-      /^\[/ { in_xorg=0 }
-      in_xorg && /^port=-1/ && !xorg_ip { print "ip=127.0.0.1"; xorg_ip=1 }
-      { print }
-    ' "$ini" > "${ini}.tmp" && mv "${ini}.tmp" "$ini"
-    log "xrdp.ini: restored [Xorg] ip=127.0.0.1 for sesman"
-  fi
-
-  if [[ "$DESKTOP_RDP_PUBLIC" == "true" ]]; then
-    sed -i '/^address=/d' "$ini"
-  elif grep -q '^address=' "$ini"; then
-    sed -i 's/^address=.*/address=127.0.0.1/' "$ini"
-  else
-    sed -i '/^\[Globals\]/a address=127.0.0.1' "$ini"
-  fi
-}
-
-configure_xrdp_sesman() {
-  local sesman=/etc/xrdp/sesman.ini
-  [[ -f "$sesman" ]] || return 0
-  grep -q '^\[Xorg\]' "$sesman" || return 0
-
-  # Only the first param= under [Xorg] is the Xorg binary; the rest are startup flags.
-  if awk '/^\[Xorg\]/{f=1; next} /^\[/{f=0} f && /^param=\/usr\/lib\/xorg\/Xorg$/{found=1; exit} END{exit !found}' "$sesman"; then
-    return 0
-  fi
-
-  awk '
-    /^\[Xorg\]/ { in_xorg=1; xorg_param=0; print; next }
-    /^\[/ { in_xorg=0 }
-    in_xorg && /^param=/ {
-      if (!xorg_param) { print "param=/usr/lib/xorg/Xorg"; xorg_param=1; next }
-    }
-    { print }
-  ' "$sesman" > "${sesman}.tmp" && mv "${sesman}.tmp" "$sesman"
-  log "sesman.ini: Xorg backend -> /usr/lib/xorg/Xorg"
-}
-
-configure_desktop_scroll_prefs() {
-  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
-
-  if [[ -x /opt/firefox/firefox ]]; then
-    mkdir -p /opt/firefox/distribution
-    cat > /opt/firefox/distribution/policies.json <<'FPEOF'
-{
-  "policies": {
-    "Preferences": {
-      "mousewheel.default.delta_multiplier_y": {"Value": 40, "Status": "default"},
-      "mousewheel.min_line_scroll_amount": {"Value": 1, "Status": "default"}
-    }
-  }
-}
-FPEOF
-  fi
-
-  if [[ "$INSTALL_CURSOR" == "true" ]]; then
-    local home="/data/home/$DEV_USER"
-    local settings="$home/.config/Cursor/User/settings.json"
-    mkdir -p "$(dirname "$settings")"
-    python3 - "$settings" <<'PY'
-import json, os, sys
-path = sys.argv[1]
-data = {}
-if os.path.exists(path):
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-data["editor.mouseWheelScrollSensitivity"] = 0.35
-data["terminal.integrated.mouseWheelScrollSensitivity"] = 0.35
-data["workbench.list.mouseWheelScrollSensitivity"] = 0.5
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PY
-    chown -R "$DEV_USER:$DEV_USER" "$home/.config/Cursor"
-  fi
-}
-
-ensure_xrdp_touchpad_scroll() {
-  [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
-  command -v xrdp &>/dev/null || return 0
-
-  configure_xrdp_ini
-  configure_xrdp_sesman
-  configure_desktop_scroll_prefs
-
-  # Keep apt xrdp/xorgxrdp in sync — source upgrades easily leave mixed versions
-  # (xrdp 0.10.x + xorgxrdp 0.2.x breaks RandR / session start).
-  if ! dpkg -s xrdp xorgxrdp &>/dev/null; then
-    return 0
-  fi
-  if ! xrdp --version 2>&1 | grep -qF "$(dpkg-query -W -f='${Version}' xrdp 2>/dev/null | sed 's/-.*//')"; then
-    log "Reconciling xrdp with apt packages (mixed install detected)..."
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get install -y --reinstall xrdp xorgxrdp
-    configure_xrdp_ini
-    configure_xrdp_sesman
-    systemctl restart xrdp xrdp-sesman 2>/dev/null || systemctl restart xrdp
-  fi
-}
-
 setup_desktop() {
   [[ "$INSTALL_DESKTOP" == "true" ]] || return 0
 
@@ -732,17 +625,11 @@ setup_desktop() {
 
   local marker="/var/lib/dev-box/desktop-ready"
   local xsession="/data/home/$DEV_USER/.xsession"
-  local desktop_installed=false
 
   if [[ -f "$marker" ]] && systemctl is-active --quiet xrdp 2>/dev/null \
       && [[ -x "$xsession" ]] && dpkg -s xorgxrdp &>/dev/null \
       && grep -q 'DefaultWindowManager=startwm.sh' /etc/xrdp/sesman.ini 2>/dev/null; then
-    desktop_installed=true
-  fi
-
-  if [[ "$desktop_installed" == "true" ]]; then
     log "Desktop (XFCE + xrdp) already installed"
-    ensure_xrdp_touchpad_scroll || true
     return 0
   fi
 
@@ -787,16 +674,19 @@ unset XDG_RUNTIME_DIR' /etc/xrdp/startwm.sh
   fi
 
   if [[ "$DESKTOP_RDP_PUBLIC" == "true" ]]; then
+    sed -i '/^address=/d' /etc/xrdp/xrdp.ini
     log "RDP listening on all interfaces :3389 (desktop_rdp_public=true)"
   else
+    if grep -q '^address=' /etc/xrdp/xrdp.ini; then
+      sed -i 's/^address=.*/address=127.0.0.1/' /etc/xrdp/xrdp.ini
+    else
+      sed -i '/^\[Globals\]/a address=127.0.0.1' /etc/xrdp/xrdp.ini
+    fi
     log "RDP bound to 127.0.0.1:3389 — connect via SSH tunnel + Windows App"
   fi
-  configure_xrdp_ini
 
   systemctl enable xrdp
   systemctl restart xrdp
-
-  ensure_xrdp_touchpad_scroll || true
 
   mkdir -p /var/lib/dev-box
   date -Is > "$marker"
