@@ -7,9 +7,10 @@
 check:
 	@./scripts/check-local.sh
 
-# 首次使用：从 example 复制 terraform.tfvars 模板
+# 首次使用：复制 tfvars 模板并下载 Terraform provider
 init:
 	@cp -n terraform/terraform.tfvars.example terraform/terraform.tfvars || true
+	@cd terraform && terraform init
 	@echo "运行 make set-ip 自动填入公网 IP，或 make up 部署时会自动填入"
 
 # 自动查公网 IP 并写入 terraform.tfvars（换 WiFi 后连不上时也要跑）
